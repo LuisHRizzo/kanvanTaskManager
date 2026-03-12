@@ -25,18 +25,20 @@ services:
       - db
     restart: unless-stopped
 
-  frontend:
+frontend:
     build:
       context: ./frontend
     container_name: gestor_frontend
     ports:
       - '5173:5173'
-    # ELIMINADOS los volumes de ./frontend:/app
     environment:
-      - 'VITE_API_URL=http://apis-taskmanager.163.176.208.127.sslip.io:3000/api' # ¡Atento a esto para el paso 2!
+      - 'VITE_API_URL=http://apis-taskmanager.163.176.208.127.sslip.io/api'
     depends_on:
       - backend
     restart: unless-stopped
+    # ESTO ES LO NUEVO: Le dice a Coolify qué puerto usar
+    labels:
+      - "traefik.http.services.gestor_frontend.loadbalancer.server.port=5173"
 
 volumes:
   pgdata: null
