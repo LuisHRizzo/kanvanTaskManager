@@ -25,7 +25,7 @@ services:
       - db
     restart: unless-stopped
 
-frontend:
+  frontend:
     build:
       context: ./frontend
     container_name: gestor_frontend
