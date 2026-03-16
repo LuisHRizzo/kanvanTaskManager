@@ -1,5 +1,6 @@
-const { Task, Project, ProjectMember, User } = require('../models');
+const { Task, Project, ProjectMember, User, TaskAssignment } = require('../models');
 const { emitToProject } = require('../socket');
+const notificationService = require('../services/notificationService');
 
 const checkProjectAccess = async (userId, projectId) => {
   const membership = await ProjectMember.findOne({
@@ -39,10 +40,17 @@ exports.createTask = async (req, res) => {
     });
 
     const taskWithAssignee = await Task.findByPk(task.id, {
-      include: [{ model: User, as: 'assignee', attributes: ['id', 'name', 'email'] }]
+      include: [
+        { model: User, as: 'assignee', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'assignees', attributes: ['id', 'name', 'email'], through: { attributes: ['role'] } }
+      ]
     });
 
     emitToProject(projectId, 'task_created', taskWithAssignee);
+
+    if (assigneeId && assigneeId !== req.user.id) {
+      await notificationService.notifyTaskAssigned(assigneeId, taskWithAssignee, req.user);
+    }
 
     res.status(201).json(taskWithAssignee);
   } catch (error) {
@@ -61,7 +69,10 @@ exports.getTasks = async (req, res) => {
 
     const tasks = await Task.findAll({
       where: { projectId },
-      include: [{ model: User, as: 'assignee', attributes: ['id', 'name', 'email'] }],
+      include: [
+        { model: User, as: 'assignee', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'assignees', attributes: ['id', 'name', 'email'], through: { attributes: ['role'] } }
+      ],
       order: [['order', 'ASC']]
     });
 
@@ -77,7 +88,8 @@ exports.getTask = async (req, res) => {
 
     const task = await Task.findByPk(taskId, {
       include: [
-        { model: User, as: 'assignee', attributes: ['id', 'name', 'email'] }
+        { model: User, as: 'assignee', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'assignees', attributes: ['id', 'name', 'email'], through: { attributes: ['role'] } }
       ]
     });
 
@@ -124,10 +136,20 @@ exports.updateTask = async (req, res) => {
     });
 
     const updatedTask = await Task.findByPk(taskId, {
-      include: [{ model: User, as: 'assignee', attributes: ['id', 'name', 'email'] }]
+      include: [
+        { model: User, as: 'assignee', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'assignees', attributes: ['id', 'name', 'email'], through: { attributes: ['role'] } }
+      ]
     });
 
     emitToProject(task.projectId, 'task_updated', updatedTask);
+
+    if (assigneeId && assigneeId !== req.user.id) {
+      const previousAssigneeId = task.assigneeId;
+      if (previousAssigneeId !== assigneeId) {
+        await notificationService.notifyTaskAssigned(assigneeId, updatedTask, req.user);
+      }
+    }
 
     res.json(updatedTask);
   } catch (error) {
@@ -244,7 +266,10 @@ exports.updateTaskStatus = async (req, res) => {
     await task.update({ status, order });
 
     const updatedTask = await Task.findByPk(taskId, {
-      include: [{ model: User, as: 'assignee', attributes: ['id', 'name', 'email'] }]
+      include: [
+        { model: User, as: 'assignee', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'assignees', attributes: ['id', 'name', 'email'], through: { attributes: ['role'] } }
+      ]
     });
 
     emitToProject(task.projectId, 'task_moved', updatedTask);

@@ -31,6 +31,14 @@ const User = sequelize.define('User', {
   googleTokens: {
     type: DataTypes.JSONB,
     allowNull: true
+  },
+  googleRefreshToken: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  googleTaskListId: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
   hooks: {

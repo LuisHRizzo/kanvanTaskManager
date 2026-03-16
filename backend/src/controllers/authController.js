@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+const googleOAuthService = require('../services/googleOAuthService');
 
 const generateToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET, {
@@ -72,4 +73,75 @@ exports.getMe = async (req, res) => {
       name: req.user.name
     }
   });
+};
+
+exports.googleAuth = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const authUrl = googleOAuthService.getAuthUrl(userId);
+    res.json({ authUrl });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.googleCallback = async (req, res) => {
+  try {
+    const { code, state: userId } = req.query;
+
+    if (!userId) {
+      return res.redirect(`${process.env.FRONTEND_URL}/settings?error=no_user_id`);
+    }
+
+    const tokens = await googleOAuthService.getTokens(code);
+    const userInfo = await googleOAuthService.getUserInfo(tokens);
+
+    await User.update(
+      {
+        googleId: userInfo.id,
+        googleTokens: tokens,
+        googleRefreshToken: tokens.refresh_token,
+        email: userInfo.email
+      },
+      { where: { id: userId } }
+    );
+
+    res.redirect(`${process.env.FRONTEND_URL}/settings?google=connected`);
+  } catch (error) {
+    console.error('Google OAuth error:', error);
+    res.redirect(`${process.env.FRONTEND_URL}/settings?error=oauth_failed`);
+  }
+};
+
+exports.googleDisconnect = async (req, res) => {
+  try {
+    await User.update(
+      {
+        googleId: null,
+        googleTokens: null,
+        googleRefreshToken: null,
+        googleTaskListId: null
+      },
+      { where: { id: req.user.id } }
+    );
+
+    res.json({ message: 'Google account disconnected successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.googleStatus = async (req, res) => {
+  try {
+    const user = req.user;
+    const isConnected = !!(user.googleId && user.googleTokens);
+    
+    res.json({
+      isConnected,
+      email: user.googleTokens?.email || null,
+      taskListId: user.googleTaskListId
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };

@@ -39,7 +39,32 @@ export default function TaskCard({ task, onClick }) {
         </h4>
       </div>
       
-      {task.assignee && (
+      {task.assignees && task.assignees.length > 0 && (
+        <div className="flex items-center gap-1 text-xs text-gray-500 mb-2">
+          <div className="flex -space-x-2">
+            {task.assignees.slice(0, 3).map((assignee, idx) => (
+              <div 
+                key={assignee.id || idx}
+                className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs border-2 border-white cursor-pointer"
+                onClick={handleClick}
+                title={assignee.name}
+              >
+                {assignee.name.charAt(0).toUpperCase()}
+              </div>
+            ))}
+            {task.assignees.length > 3 && (
+              <div className="w-5 h-5 rounded-full bg-gray-400 flex items-center justify-center text-white text-xs border-2 border-white">
+                +{task.assignees.length - 3}
+              </div>
+            )}
+          </div>
+          <span className="ml-1 cursor-pointer" onClick={handleClick}>
+            {task.assignees.map(a => a.name).join(', ')}
+          </span>
+        </div>
+      )}
+      
+      {task.assignee && !task.assignees && (
         <div className="flex items-center gap-1 text-xs text-gray-500 mb-2">
           <div 
             className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs cursor-pointer"

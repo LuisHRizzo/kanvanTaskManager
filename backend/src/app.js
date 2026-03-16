@@ -7,10 +7,15 @@ const http = require('http');
 const { sequelize } = require('./models');
 
 const { initializeSocket } = require('./socket');
+const { startNotificationScheduler } = require('./services/notificationScheduler');
 const authRoutes = require('./routes/auth');
 const projectRoutes = require('./routes/projects');
 const taskRoutes = require('./routes/tasks');
 const timeRoutes = require('./routes/time');
+const googleSyncRoutes = require('./routes/googleSync');
+const notificationRoutes = require('./routes/notifications');
+const taskAssignmentRoutes = require('./routes/taskAssignments');
+const commentRoutes = require('./routes/comments');
 
 const app = express();
 
@@ -24,6 +29,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/time', timeRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/settings', googleSyncRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api', taskAssignmentRoutes);
+app.use('/api', commentRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
@@ -40,6 +49,9 @@ const startServer = async () => {
   try {
     await sequelize.sync({ alter: true });
     console.log('✅ Base de datos sincronizada');
+    
+    startNotificationScheduler();
+    console.log('✅ Notification scheduler started');
     
     const server = http.createServer(app);
     initializeSocket(server);

@@ -30,6 +30,14 @@ const Task = sequelize.define('Task', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  googleTaskId: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  lastNotifiedAt: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
   assigneeId: {
     type: DataTypes.UUID,
     allowNull: true

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useProjectStore } from '../store';
+import { useProjectStore, useAuthStore } from '../store';
 import { useTimeTracking } from '../hooks/useTimeTracking';
 import api from '../lib/api';
 import Timer from './Timer';
@@ -34,6 +34,16 @@ export default function TaskModal({ task, onClose }) {
   const [timeSummary, setTimeSummary] = useState(null);
   const [timeEntries, setTimeEntries] = useState([]);
 
+  const [assignees, setAssignees] = useState([]);
+  const [projectMembers, setProjectMembers] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [loadingAssignees, setLoadingAssignees] = useState(false);
+  
+  const [googleSyncStatus, setGoogleSyncStatus] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+
   // Google Calendar state
   const [calendarUrl, setCalendarUrl] = useState(task.calendarUrl || null);
   const [calendarForm, setCalendarForm] = useState({
@@ -58,6 +68,61 @@ export default function TaskModal({ task, onClose }) {
       }
     };
     fetchTimeData();
+  }, [task.id]);
+
+  useEffect(() => {
+    const fetchAssignees = async () => {
+      setLoadingAssignees(true);
+      try {
+        const res = await api.get(`/tasks/${task.id}/assignments`);
+        setAssignees(res.data);
+      } catch (error) {
+        console.error('Error fetching assignees:', error);
+      } finally {
+        setLoadingAssignees(false);
+      }
+    };
+    fetchAssignees();
+  }, [task.id]);
+
+  useEffect(() => {
+    const fetchProjectMembers = async () => {
+      if (!task.projectId) return;
+      try {
+        const res = await api.get(`/projects/${task.projectId}`);
+        setProjectMembers(res.data.members || []);
+      } catch (error) {
+        console.error('Error fetching project members:', error);
+      }
+    };
+    fetchProjectMembers();
+  }, [task.projectId]);
+
+  useEffect(() => {
+    const fetchComments = async () => {
+      setLoadingComments(true);
+      try {
+        const res = await api.get(`/tasks/${task.id}/comments`);
+        setComments(res.data);
+      } catch (error) {
+        console.error('Error fetching comments:', error);
+      } finally {
+        setLoadingComments(false);
+      }
+    };
+    fetchComments();
+  }, [task.id]);
+
+  useEffect(() => {
+    const fetchGoogleSyncStatus = async () => {
+      try {
+        const res = await api.get(`/google-sync/tasks/${task.id}/sync/google`);
+        setGoogleSyncStatus(res.data);
+      } catch (error) {
+        setGoogleSyncStatus(null);
+      }
+    };
+    fetchGoogleSyncStatus();
   }, [task.id]);
 
   const handleSave = async () => {
@@ -107,6 +172,57 @@ export default function TaskModal({ task, onClose }) {
       setCalendarError(err.response?.data?.error || 'Error al generar el enlace');
     } finally {
       setCalendarLoading(false);
+    }
+  };
+
+  const handleAddAssignee = async (userId) => {
+    try {
+      await api.post(`/tasks/${task.id}/assignments`, { userId, role: 'member' });
+      const res = await api.get(`/tasks/${task.id}/assignments`);
+      setAssignees(res.data);
+    } catch (error) {
+      alert('Error al agregar asignatario');
+    }
+  };
+
+  const handleRemoveAssignee = async (userId) => {
+    try {
+      await api.delete(`/tasks/${task.id}/assignments/${userId}`);
+      setAssignees(prev => prev.filter(a => a.userId !== userId));
+    } catch (error) {
+      alert('Error al eliminar asignatario');
+    }
+  };
+
+  const handlePostComment = async () => {
+    if (!newComment.trim()) return;
+    try {
+      const res = await api.post(`/tasks/${task.id}/comments`, { content: newComment });
+      setComments(prev => [...prev, res.data]);
+      setNewComment('');
+    } catch (error) {
+      alert('Error al agregar comentario');
+    }
+  };
+
+  const handleSyncToGoogle = async () => {
+    setSyncing(true);
+    try {
+      const res = await api.post(`/google-sync/tasks/${task.id}/sync/google`);
+      setGoogleSyncStatus(res.data);
+    } catch (error) {
+      alert('Error al sincronizar con Google Tasks');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleUnsyncFromGoogle = async () => {
+    try {
+      await api.delete(`/google-sync/tasks/${task.id}/sync/google`);
+      setGoogleSyncStatus(null);
+    } catch (error) {
+      alert('Error al desvincular de Google Tasks');
     }
   };
 
@@ -172,7 +288,29 @@ export default function TaskModal({ task, onClose }) {
           </div>
         </div>
 
-        {task.assignee && (
+        {assignees.length > 0 && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Asignados a</label>
+            <div className="flex flex-wrap gap-2">
+              {assignees.map(assignee => (
+                <div key={assignee.userId} className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-full px-3 py-1">
+                  <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs">
+                    {assignee.user?.name?.charAt(0) || '?'}
+                  </div>
+                  <span className="text-sm">{assignee.user?.name || 'Usuario'}</span>
+                  <button
+                    onClick={() => handleRemoveAssignee(assignee.userId)}
+                    className="text-gray-400 hover:text-red-500 ml-1"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {task.assignee && !task.assignees && (
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">Asignado a</label>
             <div className="flex items-center gap-2">
@@ -183,6 +321,33 @@ export default function TaskModal({ task, onClose }) {
             </div>
           </div>
         )}
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Agregar asignados</label>
+          {loadingAssignees ? (
+            <p className="text-sm text-gray-500">Cargando...</p>
+          ) : (
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleAddAssignee(e.target.value);
+                  e.target.value = '';
+                }
+              }}
+              className="w-full px-3 py-2 border rounded-lg text-sm"
+              defaultValue=""
+            >
+              <option value="">Seleccionar usuario...</option>
+              {projectMembers
+                .filter(m => !assignees.some(a => a.userId === m.id))
+                .map(member => (
+                  <option key={member.id} value={member.id}>
+                    {member.name} ({member.email})
+                  </option>
+                ))}
+            </select>
+          )}
+        </div>
 
         {/* ── Google Calendar ────────────────────────────────── */}
         <div className="border-t pt-4 mt-4">
@@ -306,6 +471,86 @@ export default function TaskModal({ task, onClose }) {
               )}
             </>
           )}
+        </div>
+
+        {/* ── Google Tasks ───────────────────────────────────── */}
+        <div className="border-t pt-4 mt-4">
+          <h3 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
+            <span>☑️</span> Google Tasks
+          </h3>
+          
+          {googleSyncStatus?.googleTaskId ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+                <span>✅</span>
+                <span>Sincronizada con Google Tasks</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleUnsyncFromGoogle}
+                  className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50 text-gray-600"
+                >
+                  Desvincular
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={handleSyncToGoogle}
+              disabled={syncing}
+              className="w-full px-4 py-2 border-2 border-dashed border-blue-300 rounded-lg text-blue-600 hover:bg-blue-50 text-sm transition-colors disabled:opacity-50"
+            >
+              {syncing ? 'Sincronizando...' : '+ Sincronizar con Google Tasks'}
+            </button>
+          )}
+        </div>
+
+        {/* ── Comentarios ────────────────────────────────────── */}
+        <div className="border-t pt-4 mt-4">
+          <h3 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
+            <span>💬</span> Comentarios ({comments.length})
+          </h3>
+          
+          <div className="space-y-3 mb-4 max-h-48 overflow-y-auto">
+            {loadingComments ? (
+              <p className="text-sm text-gray-500">Cargando comentarios...</p>
+            ) : comments.length === 0 ? (
+              <p className="text-sm text-gray-500">No hay comentarios aún</p>
+            ) : (
+              comments.map(comment => (
+                <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs">
+                      {comment.user?.name?.charAt(0) || '?'}
+                    </div>
+                    <span className="font-medium text-sm">{comment.user?.name || 'Usuario'}</span>
+                    <span className="text-xs text-gray-400">
+                      {new Date(comment.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-700">{comment.content}</p>
+                </div>
+              ))
+            )}
+          </div>
+          
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handlePostComment()}
+              placeholder="Escribir un comentario..."
+              className="flex-1 px-3 py-2 border rounded-lg text-sm"
+            />
+            <button
+              onClick={handlePostComment}
+              disabled={!newComment.trim()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
+            >
+              Enviar
+            </button>
+          </div>
         </div>
 
         {/* ── Seguimiento de Tiempo ──────────────────────────── */}

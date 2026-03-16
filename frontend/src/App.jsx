@@ -6,6 +6,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import ProjectView from './pages/ProjectView';
 import TimeReport from './pages/TimeReport';
+import Settings from './pages/Settings';
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -52,6 +53,14 @@ function App() {
         element={
           <ProtectedRoute>
             <TimeReport />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Settings />
           </ProtectedRoute>
         }
       />

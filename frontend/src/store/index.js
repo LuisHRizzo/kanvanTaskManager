@@ -5,6 +5,11 @@ export const useAuthStore = create((set, get) => ({
   user: null,
   token: localStorage.getItem('token'),
   isAuthenticated: !!localStorage.getItem('token'),
+  googleStatus: {
+    isConnected: false,
+    email: null,
+    taskListId: null
+  },
   
   login: async (email, password) => {
     const response = await api.post('/auth/login', { email, password });
@@ -24,7 +29,7 @@ export const useAuthStore = create((set, get) => ({
   
   logout: () => {
     localStorage.removeItem('token');
-    set({ user: null, token: null, isAuthenticated: false });
+    set({ user: null, token: null, isAuthenticated: false, googleStatus: { isConnected: false, email: null, taskListId: null } });
   },
   
   fetchMe: async () => {
@@ -34,6 +39,26 @@ export const useAuthStore = create((set, get) => ({
     } catch (error) {
       get().logout();
     }
+  },
+
+  fetchGoogleStatus: async () => {
+    try {
+      const response = await api.get('/auth/google/status');
+      set({ googleStatus: response.data });
+      return response.data;
+    } catch (error) {
+      return { isConnected: false, email: null, taskListId: null };
+    }
+  },
+
+  connectGoogle: async () => {
+    const response = await api.get('/auth/google');
+    window.location.href = response.data.authUrl;
+  },
+
+  disconnectGoogle: async () => {
+    await api.post('/auth/google/disconnect');
+    set({ googleStatus: { isConnected: false, email: null, taskListId: null } });
   }
 }));
 
