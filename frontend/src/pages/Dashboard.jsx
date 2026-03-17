@@ -82,30 +82,43 @@ export default function Dashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((project) => (
-              <Link
+              <div
                 key={project.id}
-                to={`/project/${project.id}`}
-                className="bg-white p-6 rounded-lg shadow hover:shadow-md transition"
+                className="bg-white p-6 rounded-lg shadow hover:shadow-md transition relative group"
               >
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {project.name}
-                </h3>
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                  {project.description || 'Sin descripción'}
-                </p>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">
-                    Propietario: {project.owner?.name}
-                  </span>
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    project.role === 'owner' 
-                      ? 'bg-blue-100 text-blue-800' 
-                      : 'bg-green-100 text-green-800'
-                  }`}>
-                    {project.role === 'owner' ? 'Propietario' : 'Miembro'}
-                  </span>
-                </div>
-              </Link>
+                <Link to={`/project/${project.id}`}>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {project.name}
+                  </h3>
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                    {project.description || 'Sin descripción'}
+                  </p>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">
+                      Propietario: {project.owner?.name}
+                    </span>
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      project.role === 'owner' 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {project.role === 'owner' ? 'Propietario' : 'Miembro'}
+                    </span>
+                  </div>
+                </Link>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (confirm(`¿Eliminar el proyecto "${project.name}"?`)) {
+                      useProjectStore.getState().deleteProject(project.id);
+                    }
+                  }}
+                  className="absolute top-2 right-2 p-2 text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition"
+                  title="Eliminar proyecto"
+                >
+                  🗑️
+                </button>
+              </div>
             ))}
           </div>
         )}

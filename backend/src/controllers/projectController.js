@@ -70,11 +70,15 @@ exports.getProject = async (req, res) => {
       return res.status(404).json({ error: 'Proyecto no encontrado' });
     }
 
+    // Check if current user is owner
+    const isOwner = project.ownerId === req.user.id;
+    
     res.json({
       ...project.toJSON(),
-      role: membership.role
+      role: isOwner ? 'owner' : 'member'
     });
   } catch (error) {
+    console.error('getProject error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -115,22 +119,21 @@ exports.deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const membership = await ProjectMember.findOne({
-      where: { userId: req.user.id, projectId: id }
-    });
-
-    if (!membership || membership.role !== 'owner') {
-      return res.status(403).json({ error: 'Solo el propietario puede eliminar el proyecto' });
-    }
-
+    // Allow any authenticated user to delete any project (company-wide)
     const project = await Project.findByPk(id);
     if (!project) {
       return res.status(404).json({ error: 'Proyecto no encontrado' });
     }
 
+    // Delete related records first (tasks, members)
+    const { Task, ProjectMember } = require('../models');
+    await Task.destroy({ where: { projectId: id } });
+    await ProjectMember.destroy({ where: { projectId: id } });
+    
     await project.destroy();
     res.json({ message: 'Proyecto eliminado' });
   } catch (error) {
+    console.error('deleteProject error:', error);
     res.status(500).json({ error: error.message });
   }
 };
