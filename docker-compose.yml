@@ -4,11 +4,11 @@ services:
     container_name: gestor_db
     environment:
       POSTGRES_USER: admin
+      # Pasamos la variable sin comillas y sin armarla a mano
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: gestor_proyectos_db
-    # ELIMINADO: ports: - '5432:5432' por seguridad
     volumes:
-      - 'pgdata:/var/lib/postgresql/data' # Este volumen sí queda, ¡es para no perder los datos!
+      - 'pgdata:/var/lib/postgresql/data'
     restart: unless-stopped
 
   backend:
@@ -19,16 +19,17 @@ services:
       - '3000:3000'
     environment:
       - PORT=3000
-      - 'DATABASE_URL=postgres://admin:${POSTGRES_PASSWORD}@db:5432/gestor_proyectos_db'
-      - 'JWT_SECRET=${JWT_SECRET}'
-      - 'JWT_EXPIRES_IN=7d'
-      - 'FRONTEND_URL=http://localhost:5173'
-      - 'GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}'
-      - 'GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}'
-      - 'GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback'
-      - 'VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}'
-      - 'VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}'
-      - 'VAPID_SUBJECT=mailto:admin@example.com'
+      # ATENCIÓN AQUÍ: Ya no la armamos, simplemente pasamos la variable completa
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=7d
+      - FRONTEND_URL=${FRONTEND_URL}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+      - VAPID_SUBJECT=${VAPID_SUBJECT}
     depends_on:
       - db
     restart: unless-stopped
@@ -40,11 +41,10 @@ services:
     ports:
       - '5173:5173'
     environment:
-      - 'VITE_API_URL=http://localhost:3000/api'
+      - VITE_API_URL=${VITE_API_URL} # También haz esto dinámico por las dudas
     depends_on:
       - backend
     restart: unless-stopped
-    # ESTO ES LO NUEVO: Le dice a Coolify qué puerto usar
     labels:
       - "traefik.http.services.gestor_frontend.loadbalancer.server.port=5173"
 
