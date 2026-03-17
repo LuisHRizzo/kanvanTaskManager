@@ -3,10 +3,8 @@ const { emitToProject } = require('../socket');
 const notificationService = require('../services/notificationService');
 
 const checkProjectAccess = async (userId, projectId) => {
-  const membership = await ProjectMember.findOne({
-    where: { userId, projectId }
-  });
-  return membership;
+  // Allow all authenticated users to access all projects (company-wide collaboration)
+  return true;
 };
 
 exports.createTask = async (req, res) => {

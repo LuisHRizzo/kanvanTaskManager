@@ -34,23 +34,14 @@ exports.createProject = async (req, res) => {
 
 exports.getProjects = async (req, res) => {
   try {
-    const userId = req.user.id;
-
-    const memberships = await ProjectMember.findAll({
-      where: { userId },
-      include: [{
-        model: Project,
-        as: 'project',
-        include: [
-          { model: User, as: 'owner', attributes: ['id', 'name', 'email'] }
-        ]
-      }]
+    // Return ALL projects for company-wide collaboration
+    const projects = await Project.findAll({
+      include: [
+        { model: User, as: 'owner', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'members', through: { attributes: ['role'] }, attributes: ['id', 'name', 'email'] }
+      ],
+      order: [['createdAt', 'DESC']]
     });
-
-    const projects = memberships.map(m => ({
-      ...m.project.toJSON(),
-      role: m.role
-    }));
 
     res.json(projects);
   } catch (error) {
@@ -62,14 +53,7 @@ exports.getProject = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const membership = await ProjectMember.findOne({
-      where: { userId: req.user.id, projectId: id }
-    });
-
-    if (!membership) {
-      return res.status(403).json({ error: 'No tienes acceso a este proyecto' });
-    }
-
+    // Allow any authenticated user to access any project
     const project = await Project.findByPk(id, {
       include: [
         { model: User, as: 'owner', attributes: ['id', 'name', 'email'] },
