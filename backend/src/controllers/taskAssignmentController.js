@@ -3,11 +3,8 @@ const notificationService = require('../services/notificationService');
 const { emitToProject } = require('../socket');
 
 const checkProjectAccess = async (userId, taskId) => {
-  const task = await Task.findByPk(taskId);
-  if (!task) return null;
-  
-  const membership = await ProjectMember.findOne({ where: { userId, projectId: task.projectId } });
-  return membership;
+  // Allow all authenticated users (company-wide collaboration)
+  return true;
 };
 
 exports.addAssignee = async (req, res) => {
@@ -16,8 +13,11 @@ exports.addAssignee = async (req, res) => {
     const { userId, role = 'assignee' } = req.body;
     const currentUserId = req.user.id;
 
-    const membership = await checkProjectAccess(currentUserId, taskId);
-    if (!membership) {
+    console.log('addAssignee - taskId:', taskId, 'userId:', userId, 'role:', role);
+
+    // Allow all authenticated users
+    const hasAccess = await checkProjectAccess(currentUserId, taskId);
+    if (!hasAccess) {
       return res.status(403).json({ error: 'No tienes acceso a esta tarea' });
     }
 
@@ -25,18 +25,24 @@ exports.addAssignee = async (req, res) => {
     if (!task) {
       return res.status(404).json({ error: 'Tarea no encontrada' });
     }
+    console.log('addAssignee - task found:', task.id, 'projectId:', task.projectId);
 
     const targetUser = await User.findByPk(userId);
     if (!targetUser) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
+    console.log('addAssignee - targetUser found:', targetUser.id, targetUser.email);
 
-    const projectMembership = await ProjectMember.findOne({ where: { userId, projectId: task.projectId } });
+    // Skip project membership check for company-wide collaboration
+    // Auto-add user to project if not already member
+    let projectMembership = await ProjectMember.findOne({ where: { userId, projectId: task.projectId } });
     if (!projectMembership) {
-      return res.status(400).json({ error: 'El usuario no es miembro del proyecto' });
+      console.log('addAssignee - creating project membership');
+      projectMembership = await ProjectMember.create({ userId, projectId: task.projectId, role: 'member' });
     }
 
     const existing = await TaskAssignment.findOne({ where: { taskId, userId } });
+    console.log('addAssignee - existing:', existing);
 
     if (existing) {
       existing.role = role;
@@ -44,7 +50,9 @@ exports.addAssignee = async (req, res) => {
       return res.json(existing);
     }
 
+    console.log('addAssignee - creating assignment');
     const assignment = await TaskAssignment.create({ taskId, userId, role });
+    console.log('addAssignee - assignment created:', assignment.id);
 
     const assignmentWithUser = await TaskAssignment.findByPk(assignment.id, {
       include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }]
@@ -61,6 +69,7 @@ exports.addAssignee = async (req, res) => {
 
     res.status(201).json(assignmentWithUser);
   } catch (error) {
+    console.error('addAssignee error:', error);
     res.status(500).json({ error: error.message });
   }
 };

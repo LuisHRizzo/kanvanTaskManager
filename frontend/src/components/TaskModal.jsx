@@ -89,8 +89,9 @@ export default function TaskModal({ task, onClose }) {
     const fetchProjectMembers = async () => {
       if (!task.projectId) return;
       try {
-        const res = await api.get(`/projects/${task.projectId}`);
-        setProjectMembers(res.data.members || []);
+        // Get all users for company-wide collaboration
+        const res = await api.get('/projects/users/all');
+        setProjectMembers(res.data || []);
       } catch (error) {
         console.error('Error fetching project members:', error);
       }
@@ -177,7 +178,7 @@ export default function TaskModal({ task, onClose }) {
 
   const handleAddAssignee = async (userId) => {
     try {
-      await api.post(`/tasks/${task.id}/assignments`, { userId, role: 'member' });
+      await api.post(`/tasks/${task.id}/assignments`, { userId, role: 'assignee' });
       const res = await api.get(`/tasks/${task.id}/assignments`);
       setAssignees(res.data);
     } catch (error) {

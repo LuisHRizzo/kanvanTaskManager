@@ -34,10 +34,8 @@ const findUsersByMentions = async (content, projectId) => {
 };
 
 const checkProjectAccess = async (userId, taskId) => {
-  const task = await Task.findByPk(taskId);
-  if (!task) return null;
-  const membership = await ProjectMember.findOne({ where: { userId, projectId: task.projectId } });
-  return membership;
+  // Allow all authenticated users (company-wide collaboration)
+  return true;
 };
 
 exports.createComment = async (req, res) => {

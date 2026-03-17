@@ -3,7 +3,7 @@ const { emitToProject } = require('../socket');
 const notificationService = require('../services/notificationService');
 
 const checkProjectAccess = async (userId, projectId) => {
-  // Allow all authenticated users to access all projects (company-wide collaboration)
+  // Allow all authenticated users (company-wide collaboration)
   return true;
 };
 

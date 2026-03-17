@@ -2,10 +2,8 @@ const { TimeEntry, Task, Project, ProjectMember } = require('../models');
 const { emitToProject } = require('../socket');
 
 const checkProjectAccess = async (userId, projectId) => {
-  const membership = await ProjectMember.findOne({
-    where: { userId, projectId }
-  });
-  return membership;
+  // Allow all authenticated users (company-wide collaboration)
+  return true;
 };
 
 exports.getTimeEntries = async (req, res) => {
