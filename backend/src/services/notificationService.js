@@ -1,14 +1,22 @@
 const webpush = require('web-push');
 const { DeviceToken, Notification, NotificationPreference, User } = require('../models');
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT,
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
+if (process.env.VAPID_SUBJECT && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT,
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+} else {
+  console.warn('⚠️ VAPID keys not configured. Push notifications disabled.');
+}
 
 const sendPushNotification = async (userId, title, body, data = {}) => {
   try {
+    if (!process.env.VAPID_PUBLIC_KEY) {
+      return;
+    }
+
     const preference = await NotificationPreference.findOne({ where: { userId } });
     
     if (!preference || !preference.pushEnabled) {

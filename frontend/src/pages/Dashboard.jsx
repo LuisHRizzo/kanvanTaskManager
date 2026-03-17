@@ -39,6 +39,12 @@ export default function Dashboard() {
           </h1>
           <div className="flex items-center gap-4">
             <Link
+              to="/settings"
+              className="text-blue-600 hover:text-blue-800"
+            >
+              ⚙️ Configuración
+            </Link>
+            <Link
               to="/time-report"
               className="text-blue-600 hover:text-blue-800"
             >

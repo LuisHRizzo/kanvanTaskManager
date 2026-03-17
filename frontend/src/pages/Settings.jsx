@@ -1,19 +1,55 @@
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '../store';
+import { useAuthStore, useProjectStore } from '../store';
 import { useNotifications } from '../hooks/useNotifications';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
 
 export default function Settings() {
   const { user, googleStatus, fetchGoogleStatus, connectGoogle, disconnectGoogle } = useAuthStore();
   const { preferences, loading: prefsLoading, updatePreferences, requestPermission } = useNotifications();
+  const { projects, fetchProjects } = useProjectStore();
   const [googleTasks, setGoogleTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [importing, setImporting] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState(null);
+  const [selectedProject, setSelectedProject] = useState('');
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    fetchGoogleStatus();
+    fetchProjects();
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        if (searchParams.get('google') === 'connected') {
+          // Clear URL params and reload
+          window.history.replaceState({}, '', '/settings');
+          window.location.reload();
+          return;
+        }
+        
+        const status = await fetchGoogleStatus();
+        console.log('Google status:', status);
+        
+        if (searchParams.get('error')) {
+          setMessage({ type: 'error', text: 'Error al conectar con Google: ' + searchParams.get('error') });
+        }
+      } catch (err) {
+        console.error('Error fetching Google status:', err);
+      }
+    };
+    init();
+  }, []);
+
+  // Re-fetch google status when component mounts to ensure we have latest
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchGoogleStatus();
+    }, 500);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -25,8 +61,9 @@ export default function Settings() {
   const fetchGoogleTasks = async () => {
     setLoadingTasks(true);
     try {
-      const res = await api.get('/google-sync/google/tasks');
-      setGoogleTasks(res.data);
+      const res = await api.get('/settings/google/tasks?_t=' + Date.now());
+      console.log('Google Tasks response:', res.data);
+      setGoogleTasks(res.data.tasks || []);
     } catch (error) {
       console.error('Error fetching Google Tasks:', error);
     } finally {
@@ -35,9 +72,15 @@ export default function Settings() {
   };
 
   const handleImportTask = async (googleTaskId) => {
+    if (!selectedProject) {
+      setMessage({ type: 'error', text: 'Selecciona un proyecto primero' });
+      return;
+    }
     setImporting(googleTaskId);
     try {
-      const res = await api.post(`/google-sync/google/tasks/${googleTaskId}/import`);
+      const res = await api.post(`/settings/google/tasks/${googleTaskId}/import`, {
+        projectId: selectedProject
+      });
       setMessage({ type: 'success', text: 'Tarea importada correctamente' });
       setGoogleTasks(prev => prev.filter(t => t.id !== googleTaskId));
     } catch (error) {
@@ -51,7 +94,7 @@ export default function Settings() {
   const handleSyncAllTasks = async () => {
     setSyncing(true);
     try {
-      const res = await api.post('/google-sync/tasks/sync/google');
+      const res = await api.post('/settings/tasks/sync/google');
       setMessage({ type: 'success', text: `${res.data.syncedCount} tareas sincronizadas` });
     } catch (error) {
       setMessage({ type: 'error', text: 'Error al sincronizar tareas' });
@@ -68,7 +111,15 @@ export default function Settings() {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Configuración</h1>
+      <div className="flex items-center gap-4 mb-6">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="p-2 hover:bg-gray-100 rounded-lg"
+        >
+          ← Volver
+        </button>
+        <h1 className="text-2xl font-bold">Configuración</h1>
+      </div>
 
       {message && (
         <div className={`mb-4 p-3 rounded-lg ${
@@ -138,10 +189,27 @@ export default function Settings() {
               </div>
 
               <div>
-                <h3 className="font-medium text-gray-700 mb-2">Tareas de Google Tasks</h3>
+                <h3 className="font-medium text-gray-700 mb-2">Importar tareas</h3>
+                
+                <div className="mb-3">
+                  <label className="block text-sm text-gray-600 mb-1">Seleccionar proyecto:</label>
+                  <select
+                    value={selectedProject}
+                    onChange={(e) => setSelectedProject(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                  >
+                    <option value="">Seleccionar proyecto...</option>
+                    {projects.map(project => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {loadingTasks ? (
                   <p className="text-gray-500 text-sm">Cargando tareas...</p>
-                ) : googleTasks.length === 0 ? (
+                ) : !Array.isArray(googleTasks) || googleTasks.length === 0 ? (
                   <p className="text-gray-500 text-sm">No hay tareas en Google Tasks</p>
                 ) : (
                   <div className="max-h-64 overflow-y-auto space-y-2">
@@ -157,7 +225,7 @@ export default function Settings() {
                         </div>
                         <button
                           onClick={() => handleImportTask(task.id)}
-                          disabled={importing === task.id}
+                          disabled={importing === task.id || !selectedProject}
                           className="ml-2 px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm disabled:opacity-50"
                         >
                           {importing === task.id ? 'Importando...' : 'Importar'}

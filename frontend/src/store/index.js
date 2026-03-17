@@ -43,7 +43,7 @@ export const useAuthStore = create((set, get) => ({
 
   fetchGoogleStatus: async () => {
     try {
-      const response = await api.get('/auth/google/status');
+      const response = await api.get('/auth/google/status?_t=' + Date.now());
       set({ googleStatus: response.data });
       return response.data;
     } catch (error) {

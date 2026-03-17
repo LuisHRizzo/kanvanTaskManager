@@ -134,11 +134,16 @@ exports.googleDisconnect = async (req, res) => {
 exports.googleStatus = async (req, res) => {
   try {
     const user = req.user;
-    const isConnected = !!(user.googleId && user.googleTokens);
+    console.log('googleStatus - user:', user.id, 'googleId:', user.googleId, 'googleRefreshToken:', user.googleRefreshToken ? 'exists' : 'null');
+    const isConnected = !!(user.googleId && user.googleRefreshToken);
+    
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     
     res.json({
       isConnected,
-      email: user.googleTokens?.email || null,
+      email: user.email || null,
       taskListId: user.googleTaskListId
     });
   } catch (error) {

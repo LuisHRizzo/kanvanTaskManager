@@ -116,7 +116,7 @@ export default function TaskModal({ task, onClose }) {
   useEffect(() => {
     const fetchGoogleSyncStatus = async () => {
       try {
-        const res = await api.get(`/google-sync/tasks/${task.id}/sync/google`);
+        const res = await api.get(`/settings/tasks/${task.id}/sync/google`);
         setGoogleSyncStatus(res.data);
       } catch (error) {
         setGoogleSyncStatus(null);
@@ -208,7 +208,7 @@ export default function TaskModal({ task, onClose }) {
   const handleSyncToGoogle = async () => {
     setSyncing(true);
     try {
-      const res = await api.post(`/google-sync/tasks/${task.id}/sync/google`);
+      const res = await api.post(`/settings/tasks/${task.id}/sync/google`);
       setGoogleSyncStatus(res.data);
     } catch (error) {
       alert('Error al sincronizar con Google Tasks');
@@ -219,7 +219,7 @@ export default function TaskModal({ task, onClose }) {
 
   const handleUnsyncFromGoogle = async () => {
     try {
-      await api.delete(`/google-sync/tasks/${task.id}/sync/google`);
+      await api.delete(`/settings/tasks/${task.id}/sync/google`);
       setGoogleSyncStatus(null);
     } catch (error) {
       alert('Error al desvincular de Google Tasks');
