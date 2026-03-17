@@ -204,14 +204,19 @@ exports.generateCalendarUrl = async (req, res) => {
       return res.status(403).json({ error: 'No tienes acceso a este proyecto' });
     }
 
-    // Formatear fechas a YYYYMMDDTHHMMSSZ (UTC)
-    const formatGCalDate = (isoString) => {
-      const d = new Date(isoString);
-      return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-    };
+    // Get user's Google tokens
+    const user = await User.findByPk(req.user.id);
+    if (!user.googleId || !user.googleRefreshToken) {
+      return res.status(400).json({ error: 'Cuenta de Google no conectada. Conectá tu cuenta en Configuración.' });
+    }
 
-    const startFormatted = formatGCalDate(startDateTime);
-    const endFormatted = formatGCalDate(endDateTime);
+    const googleOAuthService = require('../services/googleOAuthService');
+    const googleCalendarService = require('../services/googleCalendarService');
+
+    let tokens = user.googleTokens ? user.googleTokens : { refresh_token: user.googleRefreshToken };
+    tokens = await googleOAuthService.refreshTokenIfNeeded(tokens);
+    user.googleTokens = tokens;
+    await user.save();
 
     const projectName = task.project?.name || 'Proyecto';
     const description = [
@@ -219,26 +224,44 @@ exports.generateCalendarUrl = async (req, res) => {
       `Proyecto: ${projectName}`,
     ].filter(Boolean).join('\n');
 
-    const params = new URLSearchParams({
-      action: 'TEMPLATE',
-      text: task.title,
-      dates: `${startFormatted}/${endFormatted}`,
-      details: description,
-      location: projectName,
-      ctz: timezone,
-    });
-
-    // Los invitados se agregan como parámetro repetido 'add'
     const emailList = attendees.filter(e => e && e.includes('@'));
-    let calendarUrl = `https://calendar.google.com/calendar/render?${params.toString()}`;
-    if (emailList.length > 0) {
-      calendarUrl += `&add=${emailList.map(e => encodeURIComponent(e)).join(',')}`;
+
+    let calendarUrl;
+    let googleCalendarEventId = task.googleCalendarEventId;
+
+    if (googleCalendarEventId) {
+      // Update existing event
+      const event = await googleCalendarService.updateEvent(tokens, googleCalendarEventId, {
+        title: task.title,
+        description: description,
+        startDateTime,
+        endDateTime,
+        timezone,
+        attendees: emailList
+      });
+      calendarUrl = event.htmlLink;
+    } else {
+      // Create new event
+      const event = await googleCalendarService.createEvent(tokens, {
+        title: task.title,
+        description: description,
+        startDateTime,
+        endDateTime,
+        timezone,
+        attendees: emailList
+      });
+      googleCalendarEventId = event.id;
+      calendarUrl = event.htmlLink;
     }
 
-    await task.update({ calendarUrl });
+    await task.update({ 
+      calendarUrl,
+      googleCalendarEventId
+    });
 
-    res.json({ calendarUrl });
+    res.json({ calendarUrl, googleCalendarEventId });
   } catch (error) {
+    console.error('generateCalendarUrl error:', error);
     res.status(500).json({ error: error.message });
   }
 };

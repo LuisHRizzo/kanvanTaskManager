@@ -34,6 +34,10 @@ const Task = sequelize.define('Task', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  googleCalendarEventId: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   lastNotifiedAt: {
     type: DataTypes.DATE,
     allowNull: true
