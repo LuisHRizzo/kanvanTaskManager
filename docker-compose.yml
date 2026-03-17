@@ -4,7 +4,7 @@ services:
     container_name: gestor_db
     environment:
       POSTGRES_USER: admin
-      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: gestor_proyectos_db
     # ELIMINADO: ports: - '5432:5432' por seguridad
     volumes:
@@ -17,10 +17,18 @@ services:
     container_name: gestor_backend
     ports:
       - '3000:3000'
-    # ELIMINADOS los volumes de ./backend:/app
     environment:
       - PORT=3000
-      - 'DATABASE_URL=postgres://admin:secretpassword@db:5432/gestor_proyectos_db'
+      - 'DATABASE_URL=postgres://admin:${POSTGRES_PASSWORD}@db:5432/gestor_proyectos_db'
+      - 'JWT_SECRET=${JWT_SECRET}'
+      - 'JWT_EXPIRES_IN=7d'
+      - 'FRONTEND_URL=http://localhost:5173'
+      - 'GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}'
+      - 'GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}'
+      - 'GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback'
+      - 'VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}'
+      - 'VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}'
+      - 'VAPID_SUBJECT=mailto:admin@example.com'
     depends_on:
       - db
     restart: unless-stopped
@@ -32,7 +40,7 @@ services:
     ports:
       - '5173:5173'
     environment:
-      - 'VITE_API_URL=http://apis-taskmanager.163.176.208.127.sslip.io/api'
+      - 'VITE_API_URL=http://localhost:3000/api'
     depends_on:
       - backend
     restart: unless-stopped
