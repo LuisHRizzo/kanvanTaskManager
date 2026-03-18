@@ -6,14 +6,8 @@ const { User } = require('../models');
 
 router.use(auth);
 
-router.post('/', projectController.createProject);
-router.get('/', projectController.getProjects);
-router.get('/:id', projectController.getProject);
-router.put('/:id', projectController.updateProject);
-router.delete('/:id', projectController.deleteProject);
-router.post('/:id/members', projectController.addMember);
-
-// Get all users for company-wide collaboration
+// Specific routes first (before param routes)
+router.get('/kanban', projectController.getProjectsByKanbanStatus);
 router.get('/users/all', async (req, res) => {
   try {
     const users = await User.findAll({
@@ -24,5 +18,13 @@ router.get('/users/all', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+router.post('/', projectController.createProject);
+router.get('/', projectController.getProjects);
+router.get('/:id', projectController.getProject);
+router.put('/:id', projectController.updateProject);
+router.patch('/:id/kanban-status', projectController.updateKanbanStatus);
+router.delete('/:id', projectController.deleteProject);
+router.post('/:id/members', projectController.addMember);
 
 module.exports = router;

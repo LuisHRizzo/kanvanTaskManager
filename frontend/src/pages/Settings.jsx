@@ -3,6 +3,7 @@ import { useAuthStore, useProjectStore } from '../store';
 import { useNotifications } from '../hooks/useNotifications';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../lib/api';
+import NotificationSettings from '../components/NotificationSettings';
 
 export default function Settings() {
   const { user, googleStatus, fetchGoogleStatus, connectGoogle, disconnectGoogle } = useAuthStore();
@@ -14,6 +15,7 @@ export default function Settings() {
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState(null);
   const [selectedProject, setSelectedProject] = useState('');
+  const [activeTab, setActiveTab] = useState('general');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -30,10 +32,10 @@ export default function Settings() {
           window.location.reload();
           return;
         }
-        
+
         const status = await fetchGoogleStatus();
         console.log('Google status:', status);
-        
+
         if (searchParams.get('error')) {
           setMessage({ type: 'error', text: 'Error al conectar con Google: ' + searchParams.get('error') });
         }
@@ -121,6 +123,40 @@ export default function Settings() {
         <h1 className="text-2xl font-bold">Configuración</h1>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6 border-b">
+        <button
+          onClick={() => setActiveTab('general')}
+          className={`px-4 py-2 font-medium transition ${
+            activeTab === 'general'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          👤 General
+        </button>
+        <button
+          onClick={() => setActiveTab('notifications')}
+          className={`px-4 py-2 font-medium transition ${
+            activeTab === 'notifications'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          🔔 Notificaciones
+        </button>
+        <button
+          onClick={() => setActiveTab('google')}
+          className={`px-4 py-2 font-medium transition ${
+            activeTab === 'google'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          📅 Google Tasks
+        </button>
+      </div>
+
       {message && (
         <div className={`mb-4 p-3 rounded-lg ${
           message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
@@ -129,7 +165,7 @@ export default function Settings() {
         </div>
       )}
 
-      <div className="space-y-6">
+      {activeTab === 'general' && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <span>👤</span> Cuenta
@@ -141,12 +177,16 @@ export default function Settings() {
             </div>
           </div>
         </div>
+      )}
 
+      {activeTab === 'notifications' && <NotificationSettings />}
+
+      {activeTab === 'google' && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <span>📅</span> Google Tasks
           </h2>
-          
+
           {!googleStatus.isConnected ? (
             <div className="text-center py-4">
               <p className="text-gray-600 mb-4">Conecta tu cuenta de Google para sincronizar tareas</p>
@@ -190,7 +230,7 @@ export default function Settings() {
 
               <div>
                 <h3 className="font-medium text-gray-700 mb-2">Importar tareas</h3>
-                
+
                 <div className="mb-3">
                   <label className="block text-sm text-gray-600 mb-1">Seleccionar proyecto:</label>
                   <select
@@ -238,68 +278,7 @@ export default function Settings() {
             </div>
           )}
         </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <span>🔔</span> Notificaciones
-          </h2>
-
-          <div className="mb-4">
-            <button
-              onClick={requestPermission}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
-            >
-              🔔 Habilitar notificaciones push
-            </button>
-          </div>
-
-          {prefsLoading ? (
-            <p className="text-gray-500">Cargando preferencias...</p>
-          ) : preferences && (
-            <div className="space-y-3">
-              <label className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <span>Notificaciones de tareas asignadas</span>
-                <input
-                  type="checkbox"
-                  checked={preferences.taskAssigned ?? true}
-                  onChange={() => handleTogglePreference('taskAssigned')}
-                  className="w-5 h-5 rounded text-blue-600"
-                />
-              </label>
-
-              <label className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <span>Notificaciones de comentarios</span>
-                <input
-                  type="checkbox"
-                  checked={preferences.commentAdded ?? true}
-                  onChange={() => handleTogglePreference('commentAdded')}
-                  className="w-5 h-5 rounded text-blue-600"
-                />
-              </label>
-
-              <label className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <span>Recordatorios de fecha límite</span>
-                <input
-                  type="checkbox"
-                  checked={preferences.dueDateReminder ?? true}
-                  onChange={() => handleTogglePreference('dueDateReminder')}
-                  className="w-5 h-5 rounded text-blue-600"
-                />
-              </label>
-
-              <label className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                <span>Notificaciones de cambios de estado</span>
-                <input
-                  type="checkbox"
-                  checked={preferences.statusChange ?? true}
-                  onChange={() => handleTogglePreference('statusChange')}
-                  className="w-5 h-5 rounded text-blue-600"
-                />
-              </label>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

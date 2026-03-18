@@ -5,7 +5,7 @@ let io;
 
 const initializeSocket = (server) => {
   const { Server } = require('socket.io');
-  
+
   io = new Server(server, {
     cors: {
       origin: '*',
@@ -22,7 +22,7 @@ const initializeSocket = (server) => {
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findByPk(decoded.userId);
-      
+
       if (!user) {
         return next(new Error('User not found'));
       }
@@ -36,6 +36,10 @@ const initializeSocket = (server) => {
 
   io.on('connection', (socket) => {
     console.log(`✅ Usuario conectado: ${socket.user.name} (${socket.id})`);
+
+    // Join user-specific room for direct notifications
+    socket.join(`user:${socket.user.id}`);
+    console.log(`📥 ${socket.user.name} joined user room: user:${socket.user.id}`);
 
     socket.on('join_project', async (projectId) => {
       try {
@@ -73,8 +77,15 @@ const emitToProject = (projectId, event, data) => {
   }
 };
 
+const emitToUser = (userId, event, data) => {
+  if (io) {
+    io.to(`user:${userId}`).emit(event, data);
+  }
+};
+
 module.exports = {
   initializeSocket,
   getIO,
-  emitToProject
+  emitToProject,
+  emitToUser
 };

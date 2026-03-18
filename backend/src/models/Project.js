@@ -17,6 +17,10 @@ const Project = sequelize.define('Project', {
   ownerId: {
     type: DataTypes.UUID,
     allowNull: false
+  },
+  kanbanStatus: {
+    type: DataTypes.ENUM('backlog', 'en_proceso', 'esperando', 'completados'),
+    defaultValue: 'backlog'
   }
 }, {
   timestamps: true

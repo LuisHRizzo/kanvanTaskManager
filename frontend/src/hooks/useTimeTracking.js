@@ -42,7 +42,8 @@ export function useTimeTracking() {
       const response = await api.post(`/time/${taskId}/start`);
       setActiveEntry(response.data);
       const startTime = new Date(response.data.startTime).getTime();
-      setElapsedTime(0);
+      const now = Date.now();
+      setElapsedTime(Math.floor((now - startTime) / 1000));
       return response.data;
     } catch (error) {
       throw error;

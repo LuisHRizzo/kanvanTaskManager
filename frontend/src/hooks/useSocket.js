@@ -1,55 +1,79 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { useProjectStore, useAuthStore } from '../store';
+import { useAuthStore } from '../store';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
+let socketInstance = null;
 
-export function useSocket(projectId) {
-  const socketRef = useRef(null);
+export function useSocket() {
   const token = useAuthStore((state) => state.token);
-  const setTasks = useProjectStore((state) => state.setTasks);
-  const tasks = useProjectStore((state) => state.tasks);
+  const isConnected = useRef(false);
 
   useEffect(() => {
-    if (!token || !projectId) return;
+    if (!token) {
+      if (socketInstance) {
+        socketInstance.disconnect();
+        socketInstance = null;
+        isConnected.current = false;
+      }
+      return;
+    }
 
-    const socket = io(SOCKET_URL, {
-      auth: { token },
-      transports: ['websocket', 'polling']
-    });
+    if (!socketInstance) {
+      socketInstance = io(import.meta.env.VITE_API_URL || 'http://localhost:3000', {
+        auth: { token },
+        transports: ['websocket', 'polling']
+      });
 
-    socketRef.current = socket;
+      socketInstance.on('connect', () => {
+        console.log('✅ Socket connected:', socketInstance.id);
+        isConnected.current = true;
+      });
 
-    socket.on('connect', () => {
-      console.log('✅ WebSocket conectado');
-      socket.emit('join_project', projectId);
-    });
+      socketInstance.on('disconnect', () => {
+        console.log('❌ Socket disconnected');
+        isConnected.current = false;
+      });
 
-    socket.on('task_moved', (updatedTask) => {
-      const currentTasks = useProjectStore.getState().tasks;
-      setTasks(currentTasks.map(t => t.id === updatedTask.id ? updatedTask : t));
-    });
-
-    socket.on('task_created', (newTask) => {
-      const currentTasks = useProjectStore.getState().tasks;
-      if (currentTasks.some(t => t.id === newTask.id)) return;
-      setTasks([...currentTasks, newTask]);
-    });
-
-    socket.on('task_updated', (updatedTask) => {
-      const currentTasks = useProjectStore.getState().tasks;
-      setTasks(currentTasks.map(t => t.id === updatedTask.id ? updatedTask : t));
-    });
-
-    socket.on('disconnect', () => {
-      console.log('❌ WebSocket desconectado');
-    });
+      socketInstance.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+        isConnected.current = false;
+      });
+    }
 
     return () => {
-      socket.emit('leave_project', projectId);
-      socket.disconnect();
+      // Don't disconnect on unmount, keep connection alive
     };
-  }, [token, projectId]);
+  }, [token]);
 
-  return socketRef.current;
+  const on = (event, callback) => {
+    if (socketInstance) {
+      socketInstance.on(event, callback);
+      return () => socketInstance.off(event, callback);
+    }
+  };
+
+  const emit = (event, data) => {
+    if (socketInstance && isConnected.current) {
+      socketInstance.emit(event, data);
+    }
+  };
+
+  const joinProject = (projectId) => {
+    emit('join_project', projectId);
+  };
+
+  const leaveProject = (projectId) => {
+    emit('leave_project', projectId);
+  };
+
+  return {
+    socket: socketInstance,
+    isConnected: isConnected.current,
+    on,
+    emit,
+    joinProject,
+    leaveProject
+  };
 }
+
+export default useSocket;

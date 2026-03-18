@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore, useProjectStore } from '../store';
+import NotificationBell from '../components/NotificationBell';
 
 export default function Dashboard() {
   const [showModal, setShowModal] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', description: '' });
   const [loading, setLoading] = useState(false);
-  
+
   const user = useAuthStore((state) => state.user);
   const { projects, fetchProjects, createProject } = useProjectStore();
   const navigate = useNavigate();
@@ -38,6 +39,14 @@ export default function Dashboard() {
             Mis Proyectos
           </h1>
           <div className="flex items-center gap-4">
+            <NotificationBell />
+            <Link
+              to="/today"
+              className="text-blue-600 hover:text-blue-800"
+              title="Tareas para hoy"
+            >
+              📅 Para Hoy
+            </Link>
             <Link
               to="/settings"
               className="text-blue-600 hover:text-blue-800"
@@ -66,7 +75,12 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto py-6 px-4">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl text-gray-700">Proyectos</h2>
+          <div>
+            <h2 className="text-xl text-gray-700">Proyectos</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Accedé al <Link to="/dashboard/kanban" className="text-blue-600 hover:underline">tablero Kanban</Link> para ver los proyectos por estado
+            </p>
+          </div>
           <button
             onClick={() => setShowModal(true)}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
@@ -98,11 +112,17 @@ export default function Dashboard() {
                       Propietario: {project.owner?.name}
                     </span>
                     <span className={`px-2 py-1 rounded text-xs ${
-                      project.role === 'owner' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-green-100 text-green-800'
+                      project.kanbanStatus === 'completados'
+                        ? 'bg-green-100 text-green-800'
+                        : project.kanbanStatus === 'en_proceso'
+                        ? 'bg-blue-100 text-blue-800'
+                        : project.kanbanStatus === 'esperando'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {project.role === 'owner' ? 'Propietario' : 'Miembro'}
+                      {project.kanbanStatus === 'completados' ? '✅ Completado' :
+                       project.kanbanStatus === 'en_proceso' ? '🔄 En Proceso' :
+                       project.kanbanStatus === 'esperando' ? '⏳ Esperando' : '📋 Backlog'}
                     </span>
                   </div>
                 </Link>

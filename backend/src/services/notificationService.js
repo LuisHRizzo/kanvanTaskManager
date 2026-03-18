@@ -1,5 +1,6 @@
 const webpush = require('web-push');
 const { DeviceToken, Notification, NotificationPreference, User } = require('../models');
+const { emitToUser } = require('../socket');
 
 if (process.env.VAPID_SUBJECT && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
@@ -18,13 +19,13 @@ const sendPushNotification = async (userId, title, body, data = {}) => {
     }
 
     const preference = await NotificationPreference.findOne({ where: { userId } });
-    
+
     if (!preference || !preference.pushEnabled) {
       return;
     }
 
     const deviceTokens = await DeviceToken.findAll({ where: { userId } });
-    
+
     if (deviceTokens.length === 0) {
       return;
     }
@@ -38,7 +39,7 @@ const sendPushNotification = async (userId, title, body, data = {}) => {
     };
 
     await Promise.allSettled(
-      deviceTokens.map(token => 
+      deviceTokens.map(token =>
         webpush.sendNotification(token.token, JSON.stringify(notificationPayload))
           .catch(err => {
             if (err.statusCode === 410) {
@@ -62,6 +63,17 @@ const createNotification = async (userId, type, title, body, data = {}) => {
       body,
       data,
       sentAt: new Date()
+    });
+
+    // Emit WebSocket event for real-time notification
+    emitToUser(userId, 'notification_received', {
+      id: notification.id,
+      type,
+      title,
+      body,
+      data,
+      read: false,
+      createdAt: notification.createdAt
     });
 
     await sendPushNotification(userId, title, body, data);

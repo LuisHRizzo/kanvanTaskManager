@@ -7,14 +7,16 @@ import Dashboard from './pages/Dashboard';
 import ProjectView from './pages/ProjectView';
 import TimeReport from './pages/TimeReport';
 import Settings from './pages/Settings';
+import TodayView from './pages/TodayView';
+import ProjectKanban from './pages/ProjectKanban';
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return children;
 }
 
@@ -37,6 +39,22 @@ function App() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/kanban"
+        element={
+          <ProtectedRoute>
+            <ProjectKanban />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/today"
+        element={
+          <ProtectedRoute>
+            <TodayView />
           </ProtectedRoute>
         }
       />

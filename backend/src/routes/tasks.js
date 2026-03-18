@@ -5,6 +5,9 @@ const auth = require('../middleware/auth');
 
 router.use(auth);
 
+// Specific routes first (before param routes)
+router.get('/today', taskController.getTodayTasks);
+router.get('/:taskId/sync-google', taskController.syncWithGoogleTasks);
 router.get('/project/:projectId', taskController.getTasks);
 router.post('/project/:projectId', taskController.createTask);
 router.get('/:taskId', taskController.getTask);

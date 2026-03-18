@@ -286,6 +286,34 @@ exports.updateTaskStatus = async (req, res) => {
 
     await task.update({ status, order });
 
+    // Sync with Google Tasks if task has googleTaskId
+    if (task.googleTaskId && status === 'completada') {
+      try {
+        const user = await User.findByPk(req.user.id);
+        if (user && user.googleTokens) {
+          const googleOAuthService = require('../services/googleOAuthService');
+          const googleTasksService = require('../services/googleTasksService');
+
+          let tokens = user.googleTokens ? user.googleTokens : { refresh_token: user.googleRefreshToken };
+          tokens = await googleOAuthService.refreshTokenIfNeeded(tokens);
+
+          // Get the default task list
+          const taskList = await googleTasksService.getOrCreateDefaultTaskList(tokens, req.user.id);
+
+          // Update the task status in Google Tasks
+          await googleTasksService.updateTask(tokens, taskList.id, task.googleTaskId, {
+            title: task.title,
+            description: task.description,
+            dueDate: task.dueDate,
+            status: 'completada'
+          });
+        }
+      } catch (syncError) {
+        console.error('Error syncing with Google Tasks:', syncError.message);
+        // Don't fail the request, just log the error
+      }
+    }
+
     const updatedTask = await Task.findByPk(taskId, {
       include: [
         { model: User, as: 'assignee', attributes: ['id', 'name', 'email'] },
@@ -296,6 +324,113 @@ exports.updateTaskStatus = async (req, res) => {
     emitToProject(task.projectId, 'task_moved', updatedTask);
 
     res.json(updatedTask);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getTodayTasks = async (req, res) => {
+  try {
+    const { status } = req.query;
+    const userId = req.user.id;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const where = {
+      assigneeId: userId,
+      dueDate: {
+        [require('sequelize').Op.lte]: todayStr
+      }
+    };
+
+    // Filter by status if provided
+    if (status) {
+      const statusList = status.split(',');
+      where.status = {
+        [require('sequelize').Op.in]: statusList
+      };
+    }
+
+    const tasks = await Task.findAll({
+      where,
+      include: [
+        {
+          model: Project,
+          as: 'project',
+          attributes: ['id', 'name', 'kanbanStatus']
+        },
+        { model: User, as: 'assignee', attributes: ['id', 'name', 'email'] }
+      ],
+      order: [
+        ['status', 'ASC'],
+        ['dueDate', 'ASC']
+      ]
+    });
+
+    // Filter tasks that are not completed and due today or before
+    const filteredTasks = tasks.filter(task => {
+      if (task.status === 'completada') return false;
+      return true;
+    });
+
+    res.json(filteredTasks);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.syncWithGoogleTasks = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+
+    const task = await Task.findByPk(taskId, {
+      include: [{ model: Project, as: 'project' }]
+    });
+
+    if (!task) {
+      return res.status(404).json({ error: 'Tarea no encontrada' });
+    }
+
+    if (!task.googleTaskId) {
+      return res.status(400).json({ error: 'La tarea no está sincronizada con Google Tasks' });
+    }
+
+    const membership = await checkProjectAccess(req.user.id, task.projectId);
+    if (!membership) {
+      return res.status(403).json({ error: 'No tienes acceso a este proyecto' });
+    }
+
+    const user = await User.findByPk(req.user.id);
+    if (!user || !user.googleTokens) {
+      return res.status(400).json({ error: 'Cuenta de Google no conectada' });
+    }
+
+    const googleOAuthService = require('../services/googleOAuthService');
+    const googleTasksService = require('../services/googleTasksService');
+
+    let tokens = user.googleTokens ? user.googleTokens : { refresh_token: user.googleRefreshToken };
+    tokens = await googleOAuthService.refreshTokenIfNeeded(tokens);
+
+    const taskList = await googleTasksService.getOrCreateDefaultTaskList(tokens, req.user.id);
+
+    const syncResult = await googleTasksService.syncTaskStatus(
+      tokens,
+      taskList.id,
+      task.googleTaskId,
+      task
+    );
+
+    res.json({
+      taskId: task.id,
+      taskTitle: task.title,
+      localStatus: task.status,
+      ...syncResult
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

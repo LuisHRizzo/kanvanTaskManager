@@ -174,3 +174,58 @@ exports.addMember = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.updateKanbanStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { kanbanStatus } = req.body;
+
+    if (!kanbanStatus || !['backlog', 'en_proceso', 'esperando', 'completados'].includes(kanbanStatus)) {
+      return res.status(400).json({ error: 'Estado Kanban inválido' });
+    }
+
+    const project = await Project.findByPk(id);
+    if (!project) {
+      return res.status(404).json({ error: 'Proyecto no encontrado' });
+    }
+
+    await project.update({ kanbanStatus });
+
+    const updatedProject = await Project.findByPk(id, {
+      include: [
+        { model: User, as: 'owner', attributes: ['id', 'name', 'email'] }
+      ]
+    });
+
+    res.json(updatedProject);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getProjectsByKanbanStatus = async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    const where = {};
+    if (status) {
+      if (!['backlog', 'en_proceso', 'esperando', 'completados'].includes(status)) {
+        return res.status(400).json({ error: 'Estado Kanban inválido' });
+      }
+      where.kanbanStatus = status;
+    }
+
+    const projects = await Project.findAll({
+      where,
+      include: [
+        { model: User, as: 'owner', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'members', through: { attributes: ['role'] }, attributes: ['id', 'name', 'email'] }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json(projects);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

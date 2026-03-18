@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../lib/api';
+import useSocket from './useSocket';
 
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [preferences, setPreferences] = useState(null);
   const [permission, setPermission] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'default');
+  const { on, isConnected } = useSocket();
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -81,14 +83,14 @@ export const useNotifications = () => {
       const vapidPublicKey = vapidResponse.data.publicKey;
 
       const registration = await navigator.serviceWorker.ready;
-      
+
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
       });
 
       const subscriptionJson = JSON.parse(JSON.stringify(subscription));
-      
+
       await api.post('/notifications/register-device', {
         token: subscriptionJson.keys.p256dh,
         platform: 'web',
@@ -101,6 +103,29 @@ export const useNotifications = () => {
       throw error;
     }
   };
+
+  // Listen for real-time notifications via WebSocket
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const unsubscribe = on('notification_received', (notification) => {
+      // Show browser notification if permission granted
+      if (permission === 'granted' && Notification) {
+        new Notification(notification.title, {
+          body: notification.body,
+          icon: '/icon.png',
+          badge: '/badge.png',
+          data: notification.data
+        });
+      }
+
+      // Add to notifications list
+      setNotifications(prev => [notification, ...prev]);
+      setUnreadCount(prev => prev + 1);
+    });
+
+    return unsubscribe;
+  }, [isConnected, on, permission]);
 
   useEffect(() => {
     fetchNotifications();
