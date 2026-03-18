@@ -334,17 +334,20 @@ exports.getTodayTasks = async (req, res) => {
     const { status } = req.query;
     const userId = req.user.id;
 
-    const today = new Date();
+    // Get current date in user's local timezone (America/Argentina/Buenos_Aires)
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' }));
     today.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString().split('T')[0];
 
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const nextWeek = new Date(today);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    const nextWeekStr = nextWeek.toISOString().split('T')[0];
 
+    // Get all tasks assigned to user
     const where = {
       assigneeId: userId,
       dueDate: {
-        [require('sequelize').Op.lte]: todayStr
+        [require('sequelize').Op.ne]: null
       }
     };
 
@@ -352,7 +355,11 @@ exports.getTodayTasks = async (req, res) => {
     if (status) {
       const statusList = status.split(',');
       where.status = {
-        [require('sequelize').Op.in]: statusList
+        [require('sequelize').Op.notIn]: statusList
+      };
+    } else {
+      where.status = {
+        [require('sequelize').Op.ne]: 'completada'
       };
     }
 
@@ -367,18 +374,31 @@ exports.getTodayTasks = async (req, res) => {
         { model: User, as: 'assignee', attributes: ['id', 'name', 'email'] }
       ],
       order: [
-        ['status', 'ASC'],
-        ['dueDate', 'ASC']
+        ['dueDate', 'ASC'],
+        ['status', 'ASC']
       ]
     });
 
-    // Filter tasks that are not completed and due today or before
-    const filteredTasks = tasks.filter(task => {
-      if (task.status === 'completada') return false;
-      return true;
+    // Categorize tasks
+    const overdue = [];
+    const today_tasks = [];
+    const upcoming = [];
+
+    tasks.forEach(task => {
+      if (task.dueDate < todayStr) {
+        overdue.push(task);
+      } else if (task.dueDate === todayStr) {
+        today_tasks.push(task);
+      } else if (task.dueDate <= nextWeekStr) {
+        upcoming.push(task);
+      }
     });
 
-    res.json(filteredTasks);
+    res.json({
+      overdue,
+      today: today_tasks,
+      upcoming
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
