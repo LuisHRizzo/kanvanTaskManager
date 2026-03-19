@@ -9,7 +9,7 @@ const checkProjectAccess = async (userId, projectId) => {
 
 exports.createTask = async (req, res) => {
   try {
-    const { title, description, status, dueDate, assigneeId } = req.body;
+    const { title, description, status, dueDate, assigneeId, color } = req.body;
     const { projectId } = req.params;
 
     if (!title) {
@@ -27,13 +27,17 @@ exports.createTask = async (req, res) => {
     });
     const order = lastTask ? lastTask.order + 1 : 0;
 
+    // Auto-assign to creator if no assignee provided
+    const finalAssigneeId = assigneeId || req.user.id;
+
     const task = await Task.create({
       title,
       description,
       status: status || 'pendiente',
+      color: color || 'default',
       order,
       dueDate,
-      assigneeId,
+      assigneeId: finalAssigneeId,
       projectId
     });
 
@@ -46,8 +50,8 @@ exports.createTask = async (req, res) => {
 
     emitToProject(projectId, 'task_created', taskWithAssignee);
 
-    if (assigneeId && assigneeId !== req.user.id) {
-      await notificationService.notifyTaskAssigned(assigneeId, taskWithAssignee, req.user);
+    if (finalAssigneeId && finalAssigneeId !== req.user.id) {
+      await notificationService.notifyTaskAssigned(finalAssigneeId, taskWithAssignee, req.user);
     }
 
     res.status(201).json(taskWithAssignee);
@@ -109,7 +113,7 @@ exports.getTask = async (req, res) => {
 exports.updateTask = async (req, res) => {
   try {
     const { taskId } = req.params;
-    const { title, description, status, dueDate, assigneeId, order } = req.body;
+    const { title, description, status, dueDate, assigneeId, order, color } = req.body;
 
     const task = await Task.findByPk(taskId, {
       include: [{ model: Project, as: 'project' }]
@@ -130,7 +134,8 @@ exports.updateTask = async (req, res) => {
       status,
       dueDate,
       assigneeId,
-      order
+      order,
+      color
     });
 
     const updatedTask = await Task.findByPk(taskId, {

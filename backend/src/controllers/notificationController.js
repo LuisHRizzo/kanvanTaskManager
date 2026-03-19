@@ -109,6 +109,40 @@ exports.markAllAsRead = async (req, res) => {
   }
 };
 
+exports.deleteNotification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const deleted = await Notification.destroy({ where: { id, userId } });
+    
+    if (deleted) {
+      res.json({ message: 'Notification deleted' });
+    } else {
+      res.status(404).json({ error: 'Notification not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.deleteAllNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { read } = req.query;
+
+    const where = { userId };
+    if (read === 'true') {
+      where.read = true;
+    }
+
+    const deleted = await Notification.destroy({ where });
+    res.json({ message: `${deleted} notification(s) deleted` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 exports.getUnreadCount = async (req, res) => {
   try {
     const userId = req.user.id;

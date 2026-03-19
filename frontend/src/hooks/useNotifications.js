@@ -12,10 +12,12 @@ export const useNotifications = () => {
   const fetchNotifications = useCallback(async () => {
     try {
       const response = await api.get('/notifications');
-      setNotifications(response.data.notifications);
-      setUnreadCount(response.data.unreadCount);
+      console.log('Notifications fetched:', response.data);
+      setNotifications(response.data.notifications || []);
+      setUnreadCount(response.data.unreadCount || 0);
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      console.error('Response:', error.response?.data);
     }
   }, []);
 
@@ -54,6 +56,35 @@ export const useNotifications = () => {
       setUnreadCount(0);
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  const deleteNotification = async (id) => {
+    try {
+      await api.delete(`/notifications/${id}`);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
+
+  const deleteAllNotifications = async (read = false) => {
+    try {
+      const params = read ? { read: 'true' } : {};
+      const response = await api.delete('/notifications/all', { params });
+      
+      if (read) {
+        setNotifications(prev => prev.filter(n => !n.read));
+      } else {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting all notifications:', error);
+      throw error;
     }
   };
 
@@ -142,6 +173,8 @@ export const useNotifications = () => {
     fetchNotifications,
     markAsRead,
     markAllAsRead,
+    deleteNotification,
+    deleteAllNotifications,
     updatePreferences,
     requestPermission,
     subscribeToPush

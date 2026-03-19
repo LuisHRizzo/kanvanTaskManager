@@ -7,12 +7,15 @@ export default function NotificationBell() {
     unreadCount,
     markAsRead,
     markAllAsRead,
+    deleteNotification,
+    deleteAllNotifications,
     permission,
     requestPermission,
     subscribeToPush
   } = useNotifications();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -77,11 +80,34 @@ export default function NotificationBell() {
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
           <div className="p-3 border-b flex justify-between items-center">
             <h3 className="font-semibold text-gray-700">Notificaciones</h3>
-            {unreadCount > 0 && (
-              <button onClick={markAllAsRead} className="text-xs text-blue-600 hover:text-blue-800">
-                Marcar todo como leído
-              </button>
-            )}
+            <div className="flex gap-2">
+              {unreadCount > 0 && (
+                <button 
+                  onClick={markAllAsRead} 
+                  className="text-xs text-blue-600 hover:text-blue-800"
+                  title="Marcar todo como leído"
+                >
+                  📖 Todo leído
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button 
+                  onClick={() => {
+                    if (showDeleteConfirm) {
+                      deleteAllNotifications(false);
+                      setShowDeleteConfirm(false);
+                    } else {
+                      setShowDeleteConfirm(true);
+                      setTimeout(() => setShowDeleteConfirm(false), 3000);
+                    }
+                  }} 
+                  className="text-xs text-red-600 hover:text-red-800"
+                  title="Eliminar todas las notificaciones"
+                >
+                  🗑️ {showDeleteConfirm ? '¿Seguro?' : 'Eliminar todo'}
+                </button>
+              )}
+            </div>
           </div>
 
           {permission !== 'granted' && (
@@ -100,17 +126,34 @@ export default function NotificationBell() {
               notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  onClick={() => !notification.read && markAsRead(notification.id)}
                   className={`p-3 border-b cursor-pointer hover:bg-gray-50 transition ${!notification.read ? 'bg-blue-50' : ''}`}
                 >
                   <div className="flex gap-3">
                     <span className="text-lg">{getNotificationIcon(notification.type)}</span>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!notification.read ? 'font-medium' : 'text-gray-600'}`}>{notification.title}</p>
+                      <p 
+                        className={`text-sm ${!notification.read ? 'font-medium' : 'text-gray-600'}`}
+                        onClick={() => !notification.read && markAsRead(notification.id)}
+                      >
+                        {notification.title}
+                      </p>
                       <p className="text-xs text-gray-500 truncate">{notification.body}</p>
                       <p className="text-xs text-gray-400 mt-1">{formatTime(notification.createdAt)}</p>
                     </div>
-                    {!notification.read && <span className="w-2 h-2 bg-blue-500 rounded-full mt-1"></span>}
+                    <div className="flex flex-col gap-1">
+                      {!notification.read && <span className="w-2 h-2 bg-blue-500 rounded-full"></span>}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          console.log('Deleting notification:', notification.id);
+                          deleteNotification(notification.id);
+                        }}
+                        className="text-gray-400 hover:text-red-500 text-xs"
+                        title="Eliminar notificación"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))

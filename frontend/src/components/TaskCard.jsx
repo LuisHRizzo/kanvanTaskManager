@@ -1,5 +1,8 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { motion } from 'framer-motion';
+import { Calendar, User, Clock, Circle } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 export default function TaskCard({ task, onClick }) {
   const {
@@ -16,79 +19,130 @@ export default function TaskCard({ task, onClick }) {
     transition,
   };
 
-  const handleClick = (e) => {
-    if (!isDragging) {
-      onClick?.(task);
-    }
+  const getDueDateStatus = (dueDate) => {
+    if (!dueDate) return { text: 'Sin fecha', color: 'text-muted-foreground' };
+    const today = new Date();
+    const due = new Date(dueDate + 'T00:00:00');
+    const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return { text: `Venció hace ${Math.abs(diffDays)}d`, color: 'text-destructive font-medium' };
+    if (diffDays === 0) return { text: 'Vence hoy', color: 'text-orange-500 font-medium' };
+    if (diffDays === 1) return { text: 'Vence mañana', color: 'text-orange-500' };
+    if (diffDays <= 7) return { text: `${diffDays}d`, color: 'text-muted-foreground' };
+    return { text: new Date(dueDate + 'T00:00:00').toLocaleDateString('es-AR', { month: 'short', day: 'numeric' }), color: 'text-muted-foreground' };
   };
 
+  const dueDateStatus = getDueDateStatus(task.dueDate);
+  
+  // Color mapping for background and accent
+  const colorMap = {
+    default: { bg: 'bg-white dark:bg-card', accent: 'bg-blue-500', border: 'hover:border-blue-400 dark:hover:border-blue-500' },
+    red: { bg: 'bg-red-50 dark:bg-red-950/70', accent: 'bg-red-500', border: 'hover:border-red-400 dark:hover:border-red-600' },
+    orange: { bg: 'bg-orange-50 dark:bg-orange-950/70', accent: 'bg-orange-500', border: 'hover:border-orange-400 dark:hover:border-orange-600' },
+    yellow: { bg: 'bg-yellow-50 dark:bg-yellow-950/70', accent: 'bg-yellow-500', border: 'hover:border-yellow-400 dark:hover:border-yellow-600' },
+    green: { bg: 'bg-green-50 dark:bg-green-950/70', accent: 'bg-green-500', border: 'hover:border-green-400 dark:hover:border-green-600' },
+    blue: { bg: 'bg-blue-50 dark:bg-blue-950/70', accent: 'bg-blue-500', border: 'hover:border-blue-400 dark:hover:border-blue-600' },
+    purple: { bg: 'bg-purple-50 dark:bg-purple-950/70', accent: 'bg-purple-500', border: 'hover:border-purple-400 dark:hover:border-purple-600' },
+    pink: { bg: 'bg-pink-50 dark:bg-pink-950/70', accent: 'bg-pink-500', border: 'hover:border-pink-400 dark:hover:border-pink-600' },
+  };
+
+  const colors = colorMap[task.color || 'default'];
+
   return (
-    <div
+    <motion.div
       ref={setNodeRef}
       style={style}
-      className={`bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-grab hover:shadow-md transition ${
-        isDragging ? 'opacity-50 cursor-grabbing' : ''
-      }`}
+      {...attributes}
+      {...listeners}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ 
+        opacity: isDragging ? 0.5 : 1, 
+        y: isDragging ? -5 : 0,
+        scale: isDragging ? 1.02 : 1,
+      }}
+      whileHover={{ 
+        y: -2,
+        boxShadow: 'var(--shadow-soft-hover)',
+      }}
+      className={cn(
+        'group relative p-3.5 rounded-xl border shadow-soft cursor-grab active:cursor-grabbing',
+        'transition-all duration-200 ease-out',
+        'dark:shadow-none',
+        colors.bg,
+        colors.border,
+        isDragging && 'ring-2 ring-primary/20 shadow-glow dark:shadow-glow-dark'
+      )}
+      onClick={() => !isDragging && onClick?.(task)}
     >
-      <div {...attributes} {...listeners}>
-        <h4 
-          className="font-medium text-gray-900 text-sm mb-2"
-          onClick={handleClick}
-        >
+      {/* Color accent border */}
+      <div className={cn(
+        'absolute left-0 top-3.5 bottom-3.5 w-1 rounded-r-full opacity-60 group-hover:opacity-100 transition-opacity',
+        colors.accent
+      )} />
+
+      <div className="pl-2">
+        {/* Title */}
+        <h4 className="font-medium text-sm text-foreground leading-snug mb-2 line-clamp-2">
           {task.title}
         </h4>
-      </div>
-      
-      {task.assignees && task.assignees.length > 0 && (
-        <div className="flex items-center gap-1 text-xs text-gray-500 mb-2">
-          <div className="flex -space-x-2">
-            {task.assignees.slice(0, 3).map((assignee, idx) => (
-              <div 
-                key={assignee.id || idx}
-                className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs border-2 border-white cursor-pointer"
-                onClick={handleClick}
-                title={assignee.name}
+
+        {/* Metadata */}
+        <div className="flex items-center justify-between gap-2">
+          {/* Left: Assignee or Date */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            {task.assignee ? (
+              <motion.div 
+                className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                whileHover={{ scale: 1.02 }}
               >
-                {assignee.name.charAt(0).toUpperCase()}
-              </div>
-            ))}
-            {task.assignees.length > 3 && (
-              <div className="w-5 h-5 rounded-full bg-gray-400 flex items-center justify-center text-white text-xs border-2 border-white">
-                +{task.assignees.length - 3}
+                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-medium shrink-0">
+                  {task.assignee.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="truncate max-w-[100px] hidden sm:inline">
+                  {task.assignee.name.split(' ')[0]}
+                </span>
+              </motion.div>
+            ) : (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <User className="w-3.5 h-3.5" strokeWidth={2.5} />
+                <span>Sin asignar</span>
               </div>
             )}
           </div>
-          <span className="ml-1 cursor-pointer" onClick={handleClick}>
-            {task.assignees.map(a => a.name).join(', ')}
-          </span>
+
+          {/* Right: Due Date */}
+          {task.dueDate && (
+            <motion.div 
+              className={cn(
+                'flex items-center gap-1 text-xs shrink-0',
+                dueDateStatus.color
+              )}
+              whileHover={{ scale: 1.05 }}
+            >
+              <Calendar className="w-3.5 h-3.5" strokeWidth={2.5} />
+              <span className="font-medium">{dueDateStatus.text}</span>
+            </motion.div>
+          )}
         </div>
-      )}
-      
-      {task.assignee && !task.assignees && (
-        <div className="flex items-center gap-1 text-xs text-gray-500 mb-2">
-          <div 
-            className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs cursor-pointer"
-            onClick={handleClick}
-          >
-            {task.assignee.name.charAt(0)}
+
+        {/* Bottom: Additional info */}
+        {(task.description || task.status === 'en_progreso') && (
+          <div className="mt-2.5 pt-2.5 border-t border-border/50 flex items-center justify-between">
+            {task.description && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Circle className="w-2.5 h-2.5 fill-current" strokeWidth={0} />
+                <span className="truncate max-w-[150px] line-clamp-1">{task.description}</span>
+              </div>
+            )}
+            {task.status === 'en_progreso' && (
+              <div className="flex items-center gap-1 text-xs text-blue-500">
+                <Clock className="w-3.5 h-3.5" strokeWidth={2.5} />
+                <span>En progreso</span>
+              </div>
+            )}
           </div>
-          <span 
-            className="cursor-pointer"
-            onClick={handleClick}
-          >
-            {task.assignee.name}
-          </span>
-        </div>
-      )}
-      
-      {task.dueDate && (
-        <div 
-          className="text-xs text-gray-500 cursor-pointer"
-          onClick={handleClick}
-        >
-          📅 {new Date(task.dueDate).toLocaleDateString()}
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </motion.div>
   );
 }

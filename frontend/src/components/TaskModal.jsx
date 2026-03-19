@@ -26,7 +26,8 @@ export default function TaskModal({ task, onClose }) {
   const [form, setForm] = useState({
     title: task.title,
     description: task.description || '',
-    dueDate: task.dueDate || ''
+    dueDate: task.dueDate || '',
+    color: task.color || 'default'
   });
   const { updateTask, deleteTask } = useProjectStore();
   const [loading, setLoading] = useState(false);
@@ -129,10 +130,22 @@ export default function TaskModal({ task, onClose }) {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await updateTask(task.id, form);
+      // Only send fields that have valid values
+      const updateData = {
+        title: form.title,
+        description: form.description,
+        status: form.status,
+        color: form.color,
+        dueDate: form.dueDate || null
+      };
+      
+      console.log('Saving task with data:', updateData);
+      await updateTask(task.id, updateData);
       onClose();
     } catch (error) {
-      alert('Error al actualizar tarea');
+      console.error('Error saving task:', error);
+      console.error('Response data:', error.response?.data);
+      alert('Error al actualizar tarea: ' + (error.response?.data?.error || error.message));
     } finally {
       setLoading(false);
     }
@@ -277,16 +290,57 @@ export default function TaskModal({ task, onClose }) {
             {isEditing ? (
               <input
                 type="date"
-                value={form.dueDate}
+                value={form.dueDate || ''}
                 onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
                 className="w-full px-3 py-2 border rounded-lg"
               />
             ) : (
               <span className="text-gray-600">
-                {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'Sin fecha'}
+                {task.dueDate ? new Date(task.dueDate + 'T00:00:00').toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }) : 'Sin fecha'}
               </span>
             )}
           </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Color de la tarjeta</label>
+          {isEditing ? (
+            <div className="flex gap-2 flex-wrap">
+              {['default', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink'].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setForm({ ...form, color: c })}
+                  className={`w-10 h-10 rounded-full border-2 ${
+                    form.color === c ? 'border-gray-800' : 'border-gray-300'
+                  } ${
+                    c === 'default' ? 'bg-white' :
+                    c === 'red' ? 'bg-red-200' :
+                    c === 'orange' ? 'bg-orange-200' :
+                    c === 'yellow' ? 'bg-yellow-200' :
+                    c === 'green' ? 'bg-green-200' :
+                    c === 'blue' ? 'bg-blue-200' :
+                    c === 'purple' ? 'bg-purple-200' :
+                    c === 'pink' ? 'bg-pink-200' : 'bg-gray-200'
+                  }`}
+                  title={c.charAt(0).toUpperCase() + c.slice(1)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className={`inline-block px-3 py-1 rounded-full text-sm ${
+              task.color === 'default' ? 'bg-gray-100 text-gray-700' :
+              task.color === 'red' ? 'bg-red-100 text-red-700' :
+              task.color === 'orange' ? 'bg-orange-100 text-orange-700' :
+              task.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
+              task.color === 'green' ? 'bg-green-100 text-green-700' :
+              task.color === 'blue' ? 'bg-blue-100 text-blue-700' :
+              task.color === 'purple' ? 'bg-purple-100 text-purple-700' :
+              task.color === 'pink' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100'
+            }`}>
+              {task.color === 'default' ? 'Sin color' : task.color.charAt(0).toUpperCase() + task.color.slice(1)}
+            </div>
+          )}
         </div>
 
         {assignees.length > 0 && (

@@ -18,6 +18,11 @@ const Task = sequelize.define('Task', {
     type: DataTypes.STRING,
     defaultValue: 'pendiente'
   },
+  color: {
+    type: DataTypes.STRING,
+    defaultValue: 'default',
+    allowNull: true
+  },
   order: {
     type: DataTypes.INTEGER,
     defaultValue: 0

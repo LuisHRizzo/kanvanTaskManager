@@ -1,50 +1,128 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { motion } from 'framer-motion';
+import { cn } from '../lib/utils';
 import TaskCard from './TaskCard';
 
-const statusConfig = {
-  pendiente: { label: 'Por Hacer', color: 'bg-gray-100' },
-  en_progreso: { label: 'En Progreso', color: 'bg-blue-100' },
-  en_revision: { label: 'En Revisión', color: 'bg-yellow-100' },
-  completada: { label: 'Completada', color: 'bg-green-100' }
+const columnConfig = {
+  pendiente: { 
+    label: 'Por Hacer', 
+    gradient: 'from-gray-500 to-gray-600',
+    bgLight: 'bg-gray-100/80',
+    bgDark: 'dark:bg-gray-900/50',
+    borderLight: 'border-gray-200/60',
+    borderDark: 'dark:border-gray-800/60',
+  },
+  en_progreso: { 
+    label: 'En Progreso', 
+    gradient: 'from-blue-500 to-blue-600',
+    bgLight: 'bg-blue-50/80',
+    bgDark: 'dark:bg-blue-950/30',
+    borderLight: 'border-blue-200/60',
+    borderDark: 'dark:border-blue-800/60',
+  },
+  en_revision: { 
+    label: 'En Revisión', 
+    gradient: 'from-yellow-500 to-yellow-600',
+    bgLight: 'bg-yellow-50/80',
+    bgDark: 'dark:bg-yellow-950/30',
+    borderLight: 'border-yellow-200/60',
+    borderDark: 'dark:border-yellow-800/60',
+  },
+  completada: { 
+    label: 'Completada', 
+    gradient: 'from-green-500 to-green-600',
+    bgLight: 'bg-green-50/80',
+    bgDark: 'dark:bg-green-950/30',
+    borderLight: 'border-green-200/60',
+    borderDark: 'dark:border-green-800/60',
+  },
 };
 
 export default function KanbanColumn({ status, tasks, onTaskClick, onAddTask }) {
-  const { setNodeRef } = useDroppable({ id: status });
-  const config = statusConfig[status] || { label: status, color: 'bg-gray-100' };
+  const { setNodeRef, isOver } = useDroppable({ id: status });
+  const config = columnConfig[status] || columnConfig.pendiente;
 
   return (
-    <div className="flex flex-col w-72">
-      <div className={`p-3 rounded-t-lg ${config.color}`}>
-        <div className="flex justify-between items-center">
-          <h3 className="font-semibold text-gray-700">{config.label}</h3>
-          <span className="text-sm text-gray-500">{tasks.length}</span>
+    <motion.div 
+      className={cn(
+        'flex flex-col w-80 min-w-[20rem] rounded-2xl',
+        'border backdrop-blur-sm',
+        config.bgLight, config.borderLight,
+        config.bgDark, config.borderDark,
+        'transition-all duration-300',
+        isOver && 'ring-2 ring-primary/30 bg-primary/5 dark:bg-primary/10'
+      )}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      {/* Header */}
+      <div className="p-4 border-b border-border/50">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className={cn(
+              'w-2.5 h-2.5 rounded-full bg-gradient-to-r',
+              config.gradient
+            )} />
+            <h3 className="font-semibold text-sm text-foreground">
+              {config.label}
+            </h3>
+          </div>
+          <motion.span 
+            className={cn(
+              'px-2 py-0.5 rounded-full text-xs font-medium',
+              'bg-background/80 dark:bg-background/20',
+              'text-muted-foreground'
+            )}
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            {tasks.length}
+          </motion.span>
         </div>
       </div>
-      
+
+      {/* Tasks List */}
       <div
         ref={setNodeRef}
-        className="flex-1 bg-gray-50 p-2 rounded-b-lg min-h-[200px]"
+        className="flex-1 p-3 space-y-2.5 min-h-[12rem] overflow-y-auto scrollbar-thin"
       >
         <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-2">
-            {tasks.map((task) => (
+          {tasks.map((task, index) => (
+            <motion.div
+              key={task.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+            >
               <TaskCard
-                key={task.id}
                 task={task}
                 onClick={() => onTaskClick(task)}
               />
-            ))}
-          </div>
+            </motion.div>
+          ))}
         </SortableContext>
-        
-        <button
+
+        {/* Add Task Button */}
+        <motion.button
           onClick={() => onAddTask(status)}
-          className="w-full mt-2 p-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg border border-dashed border-gray-300"
+          whileHover={{ scale: 1.02, backgroundColor: 'hsl(var(--muted))' }}
+          whileTap={{ scale: 0.98 }}
+          className={cn(
+            'w-full p-3 rounded-xl',
+            'border border-dashed border-border/60',
+            'text-muted-foreground text-sm font-medium',
+            'hover:text-foreground hover:border-primary/30',
+            'transition-all duration-200',
+            'flex items-center justify-center gap-2'
+          )}
         >
-          + Añadir tarea
-        </button>
+          <span className="text-lg leading-none">+</span>
+          <span>Añadir tarea</span>
+        </motion.button>
       </div>
-    </div>
+    </motion.div>
   );
 }

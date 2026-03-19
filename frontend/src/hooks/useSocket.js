@@ -19,7 +19,11 @@ export function useSocket() {
     }
 
     if (!socketInstance) {
-      socketInstance = io(import.meta.env.VITE_API_URL || 'http://localhost:3000', {
+      // Remove /api from the URL for socket connection
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const socketUrl = apiUrl.replace('/api', '');
+      
+      socketInstance = io(socketUrl, {
         auth: { token },
         transports: ['websocket', 'polling']
       });

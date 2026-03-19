@@ -8,8 +8,10 @@ router.delete('/device/:id', auth, notificationController.unregisterDevice);
 router.get('/devices', auth, notificationController.getDevices);
 
 router.get('/', auth, notificationController.getNotifications);
-router.patch('/:id/read', auth, notificationController.markAsRead);
+router.delete('/all', auth, notificationController.deleteAllNotifications);
 router.patch('/read-all', auth, notificationController.markAllAsRead);
+router.patch('/:id/read', auth, notificationController.markAsRead);
+router.delete('/:id', auth, notificationController.deleteNotification);
 router.get('/unread-count', auth, notificationController.getUnreadCount);
 
 router.get('/preferences', auth, notificationController.getPreferences);
