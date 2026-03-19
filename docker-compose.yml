@@ -4,7 +4,6 @@ services:
     container_name: gestor_db
     environment:
       POSTGRES_USER: admin
-      # Pasamos la variable sin comillas y sin armarla a mano
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: gestor_proyectos_db
     volumes:
@@ -19,7 +18,6 @@ services:
       - '3000:3000'
     environment:
       - PORT=3000
-      # ATENCIÓN AQUÍ: Ya no la armamos, simplemente pasamos la variable completa
       - DATABASE_URL=${DATABASE_URL}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=7d
@@ -37,18 +35,15 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        - VITE_API_URL
+        - VITE_SOCKET_URL
     container_name: gestor_frontend
     ports:
-      - '5173:5173'
-    environment:
-      - VITE_API_URL=http://apis-taskmanager.163.176.208.127.sslip.io/api
-      - VITE_SOCKET_URL=http://apis-taskmanager.163.176.208.127.sslip.io
-    # También haz esto dinámico por las dudas
+      - '5173:80'
     depends_on:
       - backend
     restart: unless-stopped
-    labels:
-      - "traefik.http.services.gestor_frontend.loadbalancer.server.port=5173"
 
 volumes:
   pgdata: null
