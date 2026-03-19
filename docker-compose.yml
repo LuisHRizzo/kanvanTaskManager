@@ -41,7 +41,9 @@ services:
     ports:
       - '5173:5173'
     environment:
-      - VITE_API_URL=http://apis-taskmanager.163.176.208.127.sslip.io/api # También haz esto dinámico por las dudas
+      - VITE_API_URL=http://apis-taskmanager.163.176.208.127.sslip.io/api
+      - VITE_SOCKET_URL=http://apis-taskmanager.163.176.208.127.sslip.io
+    # También haz esto dinámico por las dudas
     depends_on:
       - backend
     restart: unless-stopped
