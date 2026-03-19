@@ -35,9 +35,6 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        - VITE_API_URL
-        - VITE_SOCKET_URL
     container_name: gestor_frontend
     ports:
       - '5173:80'
