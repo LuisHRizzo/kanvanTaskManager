@@ -198,6 +198,28 @@ exports.getActiveTimer = async (req, res) => {
   }
 };
 
+exports.forceStopActiveTimer = async (req, res) => {
+  try {
+    const entry = await TimeEntry.findOne({
+      where: {
+        userId: req.user.id,
+        endTime: null
+      },
+      include: [{ model: Task, as: 'task' }]
+    });
+
+    if (!entry) {
+      return res.status(404).json({ error: 'No hay timer activo' });
+    }
+
+    await entry.update({ endTime: new Date() });
+
+    res.json({ message: 'Timer detenido', entry });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 exports.getTaskTimeSummary = async (req, res) => {
   try {
     const { taskId } = req.params;

@@ -6,6 +6,7 @@ const auth = require('../middleware/auth');
 router.use(auth);
 
 router.get('/active', timeController.getActiveTimer);
+router.post('/active/stop', timeController.forceStopActiveTimer);
 router.get('/:taskId/entries', timeController.getTimeEntries);
 router.get('/:taskId/summary', timeController.getTaskTimeSummary);
 router.post('/:taskId/start', timeController.startTimer);
