@@ -19,10 +19,29 @@ export function useSocket() {
     }
 
     if (!socketInstance) {
-      // Remove /api from the URL for socket connection
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const socketUrl = apiUrl.replace('/api', '');
+      // Determine socket URL from environment or fallback
+      let socketUrl = import.meta.env.VITE_SOCKET_URL;
       
+      if (!socketUrl) {
+        const apiUrl = import.meta.env.VITE_API_URL;
+        if (apiUrl) {
+          // Remove /api suffix if present
+          socketUrl = apiUrl.replace(/\/api$/, '');
+        } else {
+          // Fallback: use current window location for API URL
+          const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+          socketUrl = `${protocol}//${window.location.hostname}:3000`;
+        }
+      }
+
+      // Validate URL format
+      try {
+        new URL(socketUrl);
+      } catch (error) {
+        console.error('Invalid socket URL configuration:', socketUrl);
+        return;
+      }
+
       socketInstance = io(socketUrl, {
         auth: { token },
         transports: ['websocket', 'polling']
