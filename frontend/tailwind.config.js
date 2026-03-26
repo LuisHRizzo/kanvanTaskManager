@@ -7,6 +7,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -48,10 +51,10 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
-        'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
-        'soft-hover': '0 10px 40px -10px rgba(0, 0, 0, 0.1), 0 2px 6px -2px rgba(0, 0, 0, 0.04)',
-        'glow': '0 0 20px rgba(59, 130, 246, 0.3)',
-        'glow-dark': '0 0 20px rgba(59, 130, 246, 0.5)',
+        'soft': '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)',
+        'soft-hover': '0 4px 12px rgba(0,0,0,0.08)',
+        'glow': '0 0 20px rgba(99, 102, 241, 0.15)',
+        'glow-dark': '0 0 20px rgba(99, 102, 241, 0.3)',
       },
       keyframes: {
         'fade-in': {

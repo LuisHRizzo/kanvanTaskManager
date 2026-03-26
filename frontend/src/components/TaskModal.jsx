@@ -3,6 +3,7 @@ import { useProjectStore, useAuthStore } from '../store';
 import { useTimeTracking } from '../hooks/useTimeTracking';
 import api from '../lib/api';
 import Timer from './Timer';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Helpers para Google Calendar
 const toLocalDatetimeValue = (date) => {
@@ -19,6 +20,24 @@ const getDefaultStart = (dueDate) => {
 const getDefaultEnd = (dueDate) => {
   const base = dueDate ? new Date(dueDate + 'T10:00:00') : new Date(Date.now() + 3600000);
   return toLocalDatetimeValue(base);
+};
+
+const colorMap = {
+  default: { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-700 dark:text-gray-300', border: 'border-gray-300 dark:border-gray-600' },
+  red: { bg: 'bg-red-100 dark:bg-red-900/50', text: 'text-red-700 dark:text-red-300', border: 'border-red-300 dark:border-red-700' },
+  orange: { bg: 'bg-orange-100 dark:bg-orange-900/50', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-300 dark:border-orange-700' },
+  yellow: { bg: 'bg-yellow-100 dark:bg-yellow-900/50', text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-300 dark:border-yellow-700' },
+  green: { bg: 'bg-green-100 dark:bg-green-900/50', text: 'text-green-700 dark:text-green-300', border: 'border-green-300 dark:border-green-700' },
+  blue: { bg: 'bg-blue-100 dark:bg-blue-900/50', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-300 dark:border-blue-700' },
+  purple: { bg: 'bg-purple-100 dark:bg-purple-900/50', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-300 dark:border-purple-700' },
+  pink: { bg: 'bg-pink-100 dark:bg-pink-900/50', text: 'text-pink-700 dark:text-pink-300', border: 'border-pink-300 dark:border-pink-700' },
+};
+
+const statusConfig = {
+  pendiente: { label: 'Pendiente', bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-700 dark:text-gray-300' },
+  en_progreso: { label: 'En Progreso', bg: 'bg-blue-100 dark:bg-blue-900/50', text: 'text-blue-700 dark:text-blue-300' },
+  en_revision: { label: 'En Revisión', bg: 'bg-amber-100 dark:bg-amber-900/50', text: 'text-amber-700 dark:text-amber-300' },
+  completada: { label: 'Completada', bg: 'bg-emerald-100 dark:bg-emerald-900/50', text: 'text-emerald-700 dark:text-emerald-300' },
 };
 
 export default function TaskModal({ task, onClose }) {
@@ -41,11 +60,10 @@ export default function TaskModal({ task, onClose }) {
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
   const [loadingAssignees, setLoadingAssignees] = useState(false);
-  
+
   const [googleSyncStatus, setGoogleSyncStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
 
-  // Google Calendar state
   const [calendarUrl, setCalendarUrl] = useState(task.calendarUrl || null);
   const [calendarForm, setCalendarForm] = useState({
     startDateTime: getDefaultStart(task.dueDate),
@@ -90,7 +108,6 @@ export default function TaskModal({ task, onClose }) {
     const fetchProjectMembers = async () => {
       if (!task.projectId) return;
       try {
-        // Get all users for company-wide collaboration
         const res = await api.get('/projects/users/all');
         setProjectMembers(res.data || []);
       } catch (error) {
@@ -130,7 +147,6 @@ export default function TaskModal({ task, onClose }) {
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Only send fields that have valid values
       const updateData = {
         title: form.title,
         description: form.description,
@@ -138,13 +154,10 @@ export default function TaskModal({ task, onClose }) {
         color: form.color,
         dueDate: form.dueDate || null
       };
-      
-      console.log('Saving task with data:', updateData);
       await updateTask(task.id, updateData);
       onClose();
     } catch (error) {
       console.error('Error saving task:', error);
-      console.error('Response data:', error.response?.data);
       alert('Error al actualizar tarea: ' + (error.response?.data?.error || error.message));
     } finally {
       setLoading(false);
@@ -240,457 +253,521 @@ export default function TaskModal({ task, onClose }) {
     }
   };
 
+  const colors = colorMap[form.color || 'default'] || colorMap.default;
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-start mb-4">
-          {isEditing ? (
-            <input
-              type="text"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="text-xl font-bold border rounded px-2 py-1 w-full"
-            />
-          ) : (
-            <h2 className="text-xl font-bold">{task.title}</h2>
-          )}
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            ✕
+    <motion.div 
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      onClick={onClose}
+    >
+      <motion.div 
+        className="bg-card rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-border shadow-soft"
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex justify-between items-start z-10">
+          <div className="flex-1">
+            {isEditing ? (
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                className="text-xl font-semibold text-foreground w-full px-3 py-2 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            ) : (
+              <h2 className="text-xl font-semibold text-foreground">{task.title}</h2>
+            )}
+          </div>
+          <button 
+            onClick={onClose} 
+            className="ml-4 p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-base"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-          {isEditing ? (
-            <textarea
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg"
-              rows={4}
-            />
-          ) : (
-            <p className="text-gray-600">{task.description || 'Sin descripción'}</p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-            <span className={`px-2 py-1 rounded text-sm ${
-              task.status === 'completada' ? 'bg-green-100 text-green-800' :
-              task.status === 'en_progreso' ? 'bg-blue-100 text-blue-800' :
-              task.status === 'en_revision' ? 'bg-yellow-100 text-yellow-800' :
-              'bg-gray-100 text-gray-800'
-            }`}>
-              {task.status.replace('_', ' ')}
-            </span>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Fecha límite</label>
+            <label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+              <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+              Descripción
+            </label>
             {isEditing ? (
-              <input
-                type="date"
-                value={form.dueDate || ''}
-                onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                className="w-full px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+                rows={4}
+                placeholder="Agregá una descripción..."
               />
             ) : (
-              <span className="text-gray-600">
-                {task.dueDate ? new Date(task.dueDate + 'T00:00:00').toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }) : 'Sin fecha'}
+              <p className="text-muted-foreground bg-muted/30 rounded-lg p-4">
+                {task.description || 'Sin descripción'}
+              </p>
+            )}
+          </div>
+
+          {/* Status & Due Date */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Estado
+              </label>
+              <span className={`inline-flex px-3 py-1.5 rounded-lg text-sm font-medium ${statusConfig[task.status]?.bg || ''} ${statusConfig[task.status]?.text || ''}`}>
+                {statusConfig[task.status]?.label || task.status}
+              </span>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                </svg>
+                Fecha límite
+              </label>
+              {isEditing ? (
+                <input
+                  type="date"
+                  value={form.dueDate || ''}
+                  onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              ) : (
+                <span className="text-muted-foreground">
+                  {task.dueDate 
+                    ? new Date(task.dueDate + 'T00:00:00').toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: 'numeric', month: 'long', year: 'numeric' })
+                    : 'Sin fecha'
+                  }
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Color */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+              <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z" />
+              </svg>
+              Color
+            </label>
+            {isEditing ? (
+              <div className="flex gap-2 flex-wrap">
+                {['default', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink'].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setForm({ ...form, color: c })}
+                    className={`w-10 h-10 rounded-full border-2 transition-all ${
+                      form.color === c ? 'border-foreground scale-110' : 'border-border hover:scale-105'
+                    } ${colorMap[c]?.bg || 'bg-gray-100'}`}
+                    title={c.charAt(0).toUpperCase() + c.slice(1)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <span className={`inline-flex px-3 py-1.5 rounded-lg text-sm font-medium ${colors.bg} ${colors.text}`}>
+                {task.color === 'default' ? 'Sin color' : task.color.charAt(0).toUpperCase() + task.color.slice(1)}
               </span>
             )}
           </div>
-        </div>
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Color de la tarjeta</label>
-          {isEditing ? (
-            <div className="flex gap-2 flex-wrap">
-              {['default', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink'].map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setForm({ ...form, color: c })}
-                  className={`w-10 h-10 rounded-full border-2 ${
-                    form.color === c ? 'border-gray-800' : 'border-gray-300'
-                  } ${
-                    c === 'default' ? 'bg-white' :
-                    c === 'red' ? 'bg-red-200' :
-                    c === 'orange' ? 'bg-orange-200' :
-                    c === 'yellow' ? 'bg-yellow-200' :
-                    c === 'green' ? 'bg-green-200' :
-                    c === 'blue' ? 'bg-blue-200' :
-                    c === 'purple' ? 'bg-purple-200' :
-                    c === 'pink' ? 'bg-pink-200' : 'bg-gray-200'
-                  }`}
-                  title={c.charAt(0).toUpperCase() + c.slice(1)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className={`inline-block px-3 py-1 rounded-full text-sm ${
-              task.color === 'default' ? 'bg-gray-100 text-gray-700' :
-              task.color === 'red' ? 'bg-red-100 text-red-700' :
-              task.color === 'orange' ? 'bg-orange-100 text-orange-700' :
-              task.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
-              task.color === 'green' ? 'bg-green-100 text-green-700' :
-              task.color === 'blue' ? 'bg-blue-100 text-blue-700' :
-              task.color === 'purple' ? 'bg-purple-100 text-purple-700' :
-              task.color === 'pink' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100'
-            }`}>
-              {task.color === 'default' ? 'Sin color' : task.color.charAt(0).toUpperCase() + task.color.slice(1)}
-            </div>
-          )}
-        </div>
-
-        {assignees.length > 0 && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Asignados a</label>
-            <div className="flex flex-wrap gap-2">
-              {assignees.map(assignee => (
-                <div key={assignee.userId} className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded-full px-3 py-1">
-                  <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs">
-                    {assignee.user?.name?.charAt(0) || '?'}
+          {/* Assignees */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+              <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+              </svg>
+              Asignados
+            </label>
+            {assignees.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {assignees.map(assignee => (
+                  <div key={assignee.userId} className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-3 py-1.5">
+                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-medium">
+                      {assignee.user?.name?.charAt(0) || '?'}
+                    </div>
+                    <span className="text-sm font-medium text-foreground">{assignee.user?.name || 'Usuario'}</span>
+                    <button
+                      onClick={() => handleRemoveAssignee(assignee.userId)}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
-                  <span className="text-sm">{assignee.user?.name || 'Usuario'}</span>
-                  <button
-                    onClick={() => handleRemoveAssignee(assignee.userId)}
-                    className="text-gray-400 hover:text-red-500 ml-1"
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">No hay usuarios asignados</p>
+            )}
+          </div>
+
+          {/* Add Assignee */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Agregar asignado</label>
+            {loadingAssignees ? (
+              <p className="text-sm text-muted-foreground">Cargando...</p>
+            ) : (
+              <select
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleAddAssignee(e.target.value);
+                    e.target.value = '';
+                  }
+                }}
+                className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+                defaultValue=""
+              >
+                <option value="">Seleccionar usuario...</option>
+                {projectMembers
+                  .filter(m => !assignees.some(a => a.userId === m.id))
+                  .map(member => (
+                    <option key={member.id} value={member.id}>
+                      {member.name} ({member.email})
+                    </option>
+                  ))}
+              </select>
+            )}
+          </div>
+
+          {/* Google Calendar */}
+          <div className="border-t border-border pt-5">
+            <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+              <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+              </svg>
+              Google Calendar
+            </h3>
+
+            {calendarUrl && !showCalendarForm ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 text-sm text-emerald-800 dark:text-emerald-400">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Evento configurado</span>
+                </div>
+                <div className="flex gap-2">
+                  <a
+                    href={calendarUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-base text-sm font-medium"
                   >
-                    ×
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                    </svg>
+                    Abrir en Google Calendar
+                  </a>
+                  <button
+                    onClick={() => setShowCalendarForm(true)}
+                    className="px-3 py-2 border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-base"
+                    title="Modificar reunión"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.75" />
+                    </svg>
                   </button>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {task.assignee && !task.assignees && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Asignado a</label>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-                {task.assignee.name.charAt(0)}
               </div>
-              <span>{task.assignee.name}</span>
-            </div>
-          </div>
-        )}
+            ) : (
+              <>
+                {!showCalendarForm ? (
+                  <button
+                    onClick={() => setShowCalendarForm(true)}
+                    className="w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg text-primary hover:bg-primary/5 transition-base text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Agendar reunión en Google Calendar
+                  </button>
+                ) : (
+                  <div className="space-y-3 bg-muted/30 rounded-lg p-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">Inicio</label>
+                        <input
+                          type="datetime-local"
+                          value={calendarForm.startDateTime}
+                          onChange={(e) => setCalendarForm({ ...calendarForm, startDateTime: e.target.value })}
+                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">Fin</label>
+                        <input
+                          type="datetime-local"
+                          value={calendarForm.endDateTime}
+                          onChange={(e) => setCalendarForm({ ...calendarForm, endDateTime: e.target.value })}
+                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        />
+                      </div>
+                    </div>
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Agregar asignados</label>
-          {loadingAssignees ? (
-            <p className="text-sm text-gray-500">Cargando...</p>
-          ) : (
-            <select
-              onChange={(e) => {
-                if (e.target.value) {
-                  handleAddAssignee(e.target.value);
-                  e.target.value = '';
-                }
-              }}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
-              defaultValue=""
-            >
-              <option value="">Seleccionar usuario...</option>
-              {projectMembers
-                .filter(m => !assignees.some(a => a.userId === m.id))
-                .map(member => (
-                  <option key={member.id} value={member.id}>
-                    {member.name} ({member.email})
-                  </option>
-                ))}
-            </select>
-          )}
-        </div>
-
-        {/* ── Google Calendar ────────────────────────────────── */}
-        <div className="border-t pt-4 mt-4">
-          <h3 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
-            <span>📅</span> Google Calendar
-          </h3>
-
-          {calendarUrl && !showCalendarForm ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
-                <span>✅</span>
-                <span>Evento configurado</span>
-              </div>
-              <div className="flex gap-2">
-                <a
-                  href={calendarUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
-                >
-                  📅 Abrir en Google Calendar
-                </a>
-                <button
-                  onClick={() => setShowCalendarForm(true)}
-                  className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50 text-gray-600"
-                  title="Modificar reunión"
-                >
-                  ✏️
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              {!showCalendarForm ? (
-                <button
-                  onClick={() => setShowCalendarForm(true)}
-                  className="w-full px-4 py-2 border-2 border-dashed border-blue-300 rounded-lg text-blue-600 hover:bg-blue-50 text-sm transition-colors"
-                >
-                  + Agendar reunión en Google Calendar
-                </button>
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Inicio
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Zona horaria</label>
+                      <select
+                        value={calendarForm.timezone}
+                        onChange={(e) => setCalendarForm({ ...calendarForm, timezone: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        <option value="America/Argentina/Buenos_Aires">Buenos Aires (ART)</option>
+                        <option value="America/Santiago">Santiago (CLT)</option>
+                        <option value="America/Bogota">Bogotá (COT)</option>
+                        <option value="America/Lima">Lima (PET)</option>
+                        <option value="America/Mexico_City">Ciudad de México (CST)</option>
+                        <option value="America/New_York">Nueva York (ET)</option>
+                        <option value="Europe/Madrid">Madrid (CET)</option>
+                        <option value="UTC">UTC</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">
+                        Invitados <span className="text-muted-foreground/60">(emails separados por coma)</span>
                       </label>
                       <input
-                        type="datetime-local"
-                        value={calendarForm.startDateTime}
-                        onChange={(e) => setCalendarForm({ ...calendarForm, startDateTime: e.target.value })}
-                        className="w-full px-2 py-1.5 border rounded text-sm"
+                        type="text"
+                        placeholder="email @empresa.com, equipo @visuallatina.com"
+                        value={calendarForm.attendees}
+                        onChange={(e) => setCalendarForm({ ...calendarForm, attendees: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Fin
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={calendarForm.endDateTime}
-                        onChange={(e) => setCalendarForm({ ...calendarForm, endDateTime: e.target.value })}
-                        className="w-full px-2 py-1.5 border rounded text-sm"
-                      />
+
+                    {calendarError && (
+                      <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-2">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                        </svg>
+                        {calendarError}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setShowCalendarForm(false); setCalendarError(null); }}
+                        className="flex-1 px-4 py-2.5 rounded-lg border border-border text-foreground hover:bg-muted transition-base text-sm font-medium"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleGenerateCalendarUrl}
+                        disabled={calendarLoading}
+                        className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 transition-base text-sm"
+                      >
+                        {calendarLoading ? 'Generando...' : 'Generar enlace'}
+                      </button>
                     </div>
                   </div>
+                )}
+              </>
+            )}
+          </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Zona horaria
-                    </label>
-                    <select
-                      value={calendarForm.timezone}
-                      onChange={(e) => setCalendarForm({ ...calendarForm, timezone: e.target.value })}
-                      className="w-full px-2 py-1.5 border rounded text-sm"
-                    >
-                      <option value="America/Argentina/Buenos_Aires">Buenos Aires (ART)</option>
-                      <option value="America/Santiago">Santiago (CLT)</option>
-                      <option value="America/Bogota">Bogotá (COT)</option>
-                      <option value="America/Lima">Lima (PET)</option>
-                      <option value="America/Mexico_City">Ciudad de México (CST)</option>
-                      <option value="America/New_York">Nueva York (ET)</option>
-                      <option value="Europe/Madrid">Madrid (CET)</option>
-                      <option value="UTC">UTC</option>
-                    </select>
-                  </div>
+          {/* Google Tasks */}
+          <div className="border-t border-border pt-5">
+            <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+              <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Google Tasks
+            </h3>
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Invitados <span className="text-gray-400">(emails separados por coma)</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="igor@empresa.com, equipo@visuallatina.com"
-                      value={calendarForm.attendees}
-                      onChange={(e) => setCalendarForm({ ...calendarForm, attendees: e.target.value })}
-                      className="w-full px-2 py-1.5 border rounded text-sm"
-                    />
-                  </div>
-
-                  {calendarError && (
-                    <p className="text-xs text-red-600 bg-red-50 rounded p-2">{calendarError}</p>
-                  )}
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => { setShowCalendarForm(false); setCalendarError(null); }}
-                      className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={handleGenerateCalendarUrl}
-                      disabled={calendarLoading}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium transition-colors"
-                    >
-                      {calendarLoading ? 'Generando...' : '🔗 Generar enlace'}
-                    </button>
-                  </div>
+            {googleSyncStatus?.googleTaskId ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 text-sm text-emerald-800 dark:text-emerald-400">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Sincronizada con Google Tasks</span>
                 </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* ── Google Tasks ───────────────────────────────────── */}
-        <div className="border-t pt-4 mt-4">
-          <h3 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
-            <span>☑️</span> Google Tasks
-          </h3>
-          
-          {googleSyncStatus?.googleTaskId ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
-                <span>✅</span>
-                <span>Sincronizada con Google Tasks</span>
-              </div>
-              <div className="flex gap-2">
                 <button
                   onClick={handleUnsyncFromGoogle}
-                  className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50 text-gray-600"
+                  className="px-4 py-2.5 rounded-lg border border-border text-foreground hover:bg-muted transition-base text-sm font-medium"
                 >
                   Desvincular
                 </button>
               </div>
-            </div>
-          ) : (
-            <button
-              onClick={handleSyncToGoogle}
-              disabled={syncing}
-              className="w-full px-4 py-2 border-2 border-dashed border-blue-300 rounded-lg text-blue-600 hover:bg-blue-50 text-sm transition-colors disabled:opacity-50"
-            >
-              {syncing ? 'Sincronizando...' : '+ Sincronizar con Google Tasks'}
-            </button>
-          )}
-        </div>
-
-        {/* ── Comentarios ────────────────────────────────────── */}
-        <div className="border-t pt-4 mt-4">
-          <h3 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
-            <span>💬</span> Comentarios ({comments.length})
-          </h3>
-          
-          <div className="space-y-3 mb-4 max-h-48 overflow-y-auto">
-            {loadingComments ? (
-              <p className="text-sm text-gray-500">Cargando comentarios...</p>
-            ) : comments.length === 0 ? (
-              <p className="text-sm text-gray-500">No hay comentarios aún</p>
             ) : (
-              comments.map(comment => (
-                <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs">
-                      {comment.user?.name?.charAt(0) || '?'}
-                    </div>
-                    <span className="font-medium text-sm">{comment.user?.name || 'Usuario'}</span>
-                    <span className="text-xs text-gray-400">
-                      {new Date(comment.createdAt).toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-700">{comment.content}</p>
-                </div>
-              ))
+              <button
+                onClick={handleSyncToGoogle}
+                disabled={syncing}
+                className="w-full px-4 py-3 border-2 border-dashed border-primary/30 rounded-lg text-primary hover:bg-primary/5 transition-base text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                {syncing ? 'Sincronizando...' : 'Sincronizar con Google Tasks'}
+              </button>
             )}
           </div>
-          
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handlePostComment()}
-              placeholder="Escribir un comentario..."
-              className="flex-1 px-3 py-2 border rounded-lg text-sm"
-            />
-            <button
-              onClick={handlePostComment}
-              disabled={!newComment.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
-            >
-              Enviar
-            </button>
-          </div>
-        </div>
 
-        {/* ── Seguimiento de Tiempo ──────────────────────────── */}
-        <div className="border-t pt-4 mt-4">
-          <h3 className="font-medium text-gray-700 mb-2">Seguimiento de Tiempo</h3>
-          <div className="flex items-center justify-between mb-4">
-            <Timer 
-              taskId={task.id}
-              activeEntry={activeEntry}
-              elapsedTime={elapsedTime}
-              loading={timerLoading}
-              onStart={startTimer}
-              onStop={stopTimer}
-              formatTime={formatTime}
-            />
-          </div>
-          {activeEntry?.taskId === task.id && (
-            <div className="bg-green-50 border border-green-200 rounded p-2 mb-2">
-              <span className="text-sm text-green-700">
-                ⏱ Cronómetro activo desde {new Date(activeEntry.startTime).toLocaleTimeString()}
-              </span>
-            </div>
-          )}
-          
-          {timeSummary && (
-            <div className="bg-gray-50 rounded-lg p-3 mb-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-700">Tiempo total:</span>
-                <span className="text-lg font-bold text-blue-600">{timeSummary.totalFormatted}</span>
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {timeSummary.entriesCount} registro(s) de tiempo
-              </div>
-              {Object.keys(timeSummary.byUser).length > 0 && (
-                <div className="mt-2 text-sm">
-                  <span className="text-gray-600">Por usuario:</span>
-                  {Object.entries(timeSummary.byUser).map(([user, seconds]) => (
-                    <div key={user} className="flex justify-between text-gray-600">
-                      <span>{user}</span>
-                      <span>{formatTime(seconds)}</span>
+          {/* Comments */}
+          <div className="border-t border-border pt-5">
+            <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+              <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+              </svg>
+              Comentarios ({comments.length})
+            </h3>
+
+            <div className="space-y-3 mb-4 max-h-48 overflow-y-auto scrollbar-thin">
+              {loadingComments ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Cargando comentarios...</p>
+              ) : comments.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No hay comentarios aún</p>
+              ) : (
+                comments.map(comment => (
+                  <div key={comment.id} className="bg-muted/30 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-medium">
+                        {comment.user?.name?.charAt(0) || '?'}
+                      </div>
+                      <span className="font-medium text-sm text-foreground">{comment.user?.name || 'Usuario'}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(comment.createdAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
-                  ))}
-                </div>
+                    <p className="text-sm text-foreground">{comment.content}</p>
+                  </div>
+                ))
               )}
             </div>
-          )}
-          
-          {timeEntries.length > 0 && (
-            <div className="max-h-40 overflow-y-auto text-sm">
-              <h4 className="font-medium text-gray-600 mb-2">Registros:</h4>
-              {timeEntries.map(entry => (
-                <div key={entry.id} className="flex justify-between py-1 border-b text-gray-600">
-                  <span>{entry.user?.name || 'Usuario'}</span>
-                  <span>
-                    {entry.endTime 
-                      ? `${new Date(entry.startTime).toLocaleDateString()} - ${formatTime(Math.floor((new Date(entry.endTime) - new Date(entry.startTime)) / 1000))}`
-                      : 'En progreso...'}
-                  </span>
-                </div>
-              ))}
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handlePostComment()}
+                placeholder="Escribir un comentario..."
+                className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+              />
+              <button
+                onClick={handlePostComment}
+                disabled={!newComment.trim()}
+                className="px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-base text-sm"
+              >
+                Enviar
+              </button>
             </div>
-          )}
+          </div>
+
+          {/* Time Tracking */}
+          <div className="border-t border-border pt-5">
+            <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+              <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Seguimiento de Tiempo
+            </h3>
+            <div className="mb-4">
+              <Timer
+                taskId={task.id}
+                activeEntry={activeEntry}
+                elapsedTime={elapsedTime}
+                loading={timerLoading}
+                onStart={startTimer}
+                onStop={stopTimer}
+                formatTime={formatTime}
+              />
+            </div>
+            {activeEntry?.taskId === task.id && (
+              <div className="mb-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3">
+                <span className="text-sm text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Cronómetro activo desde {new Date(activeEntry.startTime).toLocaleTimeString('es-AR')}
+                </span>
+              </div>
+            )}
+
+            {timeSummary && (
+              <div className="bg-muted/30 rounded-lg p-4 mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-foreground">Tiempo total:</span>
+                  <span className="text-lg font-bold text-primary">{timeSummary.totalFormatted}</span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {timeSummary.entriesCount} registro(s) de tiempo
+                </div>
+                {Object.keys(timeSummary.byUser).length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border space-y-1">
+                    <span className="text-xs text-muted-foreground">Por usuario:</span>
+                    {Object.entries(timeSummary.byUser).map(([userName, seconds]) => (
+                      <div key={userName} className="flex justify-between text-xs text-muted-foreground">
+                        <span>{userName}</span>
+                        <span>{formatTime(seconds)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {timeEntries.length > 0 && (
+              <div className="max-h-40 overflow-y-auto scrollbar-thin space-y-1">
+                <h4 className="text-xs font-medium text-muted-foreground mb-2">Registros:</h4>
+                {timeEntries.map(entry => (
+                  <div key={entry.id} className="flex justify-between py-2 px-3 rounded-lg bg-muted/30 text-sm">
+                    <span className="text-muted-foreground">{entry.user?.name || 'Usuario'}</span>
+                    <span className="text-foreground">
+                      {entry.endTime
+                        ? `${new Date(entry.startTime).toLocaleDateString('es-AR')} - ${formatTime(Math.floor((new Date(entry.endTime) - new Date(entry.startTime)) / 1000))}`
+                        : 'En progreso...'
+                      }
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Attachments */}
+          <div className="border-t border-border pt-5">
+            <h3 className="font-medium text-foreground mb-2 flex items-center gap-2">
+              <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+              </svg>
+              Documentos adjuntos
+            </h3>
+            <p className="text-sm text-muted-foreground">Próximamente en Fase 5</p>
+          </div>
         </div>
 
-        {/* ── Documentos adjuntos ───────────────────────────── */}
-        <div className="border-t pt-4 mt-4">
-          <h3 className="font-medium text-gray-700 mb-2">Documentos adjuntos</h3>
-          <p className="text-sm text-gray-500">Próximamente en Fase 5</p>
-        </div>
-
-        <div className="flex gap-2 mt-6">
+        {/* Footer Actions */}
+        <div className="sticky bottom-0 bg-card border-t border-border px-6 py-4 flex gap-3">
           {isEditing ? (
             <>
               <button
                 onClick={() => setIsEditing(false)}
-                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+                className="flex-1 px-4 py-2.5 rounded-lg border border-border text-foreground hover:bg-muted transition-base font-medium"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSave}
                 disabled={loading}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-base"
               >
-                Guardar
+                {loading ? 'Guardando...' : 'Guardar'}
               </button>
             </>
           ) : (
@@ -698,20 +775,20 @@ export default function TaskModal({ task, onClose }) {
               <button
                 onClick={handleDelete}
                 disabled={loading}
-                className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg"
+                className="px-4 py-2.5 rounded-lg text-destructive hover:bg-destructive/10 border border-destructive/20 transition-base font-medium"
               >
                 Eliminar
               </button>
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-base"
               >
                 Editar
               </button>
             </>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

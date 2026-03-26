@@ -5,37 +5,37 @@ import { cn } from '../lib/utils';
 import TaskCard from './TaskCard';
 
 const columnConfig = {
-  pendiente: { 
-    label: 'Por Hacer', 
+  pendiente: {
+    label: 'Por Hacer',
     gradient: 'from-gray-500 to-gray-600',
     bgLight: 'bg-gray-100/80',
     bgDark: 'dark:bg-gray-900/50',
     borderLight: 'border-gray-200/60',
     borderDark: 'dark:border-gray-800/60',
   },
-  en_progreso: { 
-    label: 'En Progreso', 
+  en_progreso: {
+    label: 'En Progreso',
     gradient: 'from-blue-500 to-blue-600',
     bgLight: 'bg-blue-50/80',
     bgDark: 'dark:bg-blue-950/30',
     borderLight: 'border-blue-200/60',
     borderDark: 'dark:border-blue-800/60',
   },
-  en_revision: { 
-    label: 'En Revisión', 
-    gradient: 'from-yellow-500 to-yellow-600',
-    bgLight: 'bg-yellow-50/80',
-    bgDark: 'dark:bg-yellow-950/30',
-    borderLight: 'border-yellow-200/60',
-    borderDark: 'dark:border-yellow-800/60',
+  en_revision: {
+    label: 'En Revisión',
+    gradient: 'from-amber-500 to-amber-600',
+    bgLight: 'bg-amber-50/80',
+    bgDark: 'dark:bg-amber-950/30',
+    borderLight: 'border-amber-200/60',
+    borderDark: 'dark:border-amber-800/60',
   },
-  completada: { 
-    label: 'Completada', 
-    gradient: 'from-green-500 to-green-600',
-    bgLight: 'bg-green-50/80',
-    bgDark: 'dark:bg-green-950/30',
-    borderLight: 'border-green-200/60',
-    borderDark: 'dark:border-green-800/60',
+  completada: {
+    label: 'Completada',
+    gradient: 'from-emerald-500 to-emerald-600',
+    bgLight: 'bg-emerald-50/80',
+    bgDark: 'dark:bg-emerald-950/30',
+    borderLight: 'border-emerald-200/60',
+    borderDark: 'dark:border-emerald-800/60',
   },
 };
 

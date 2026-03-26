@@ -1,7 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
-import { Calendar, User, Clock, Circle } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function TaskCard({ task, onClick }) {
@@ -24,7 +23,7 @@ export default function TaskCard({ task, onClick }) {
     const today = new Date();
     const due = new Date(dueDate + 'T00:00:00');
     const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays < 0) return { text: `Venció hace ${Math.abs(diffDays)}d`, color: 'text-destructive font-medium' };
     if (diffDays === 0) return { text: 'Vence hoy', color: 'text-orange-500 font-medium' };
     if (diffDays === 1) return { text: 'Vence mañana', color: 'text-orange-500' };
@@ -33,10 +32,10 @@ export default function TaskCard({ task, onClick }) {
   };
 
   const dueDateStatus = getDueDateStatus(task.dueDate);
-  
+
   // Color mapping for background and accent
   const colorMap = {
-    default: { bg: 'bg-white dark:bg-card', accent: 'bg-blue-500', border: 'hover:border-blue-400 dark:hover:border-blue-500' },
+    default: { bg: 'bg-card', accent: 'bg-blue-500', border: 'hover:border-blue-400 dark:hover:border-blue-500' },
     red: { bg: 'bg-red-50 dark:bg-red-950/70', accent: 'bg-red-500', border: 'hover:border-red-400 dark:hover:border-red-600' },
     orange: { bg: 'bg-orange-50 dark:bg-orange-950/70', accent: 'bg-orange-500', border: 'hover:border-orange-400 dark:hover:border-orange-600' },
     yellow: { bg: 'bg-yellow-50 dark:bg-yellow-950/70', accent: 'bg-yellow-500', border: 'hover:border-yellow-400 dark:hover:border-yellow-600' },
@@ -55,12 +54,12 @@ export default function TaskCard({ task, onClick }) {
       {...attributes}
       {...listeners}
       initial={{ opacity: 0, y: 10 }}
-      animate={{ 
-        opacity: isDragging ? 0.5 : 1, 
+      animate={{
+        opacity: isDragging ? 0.5 : 1,
         y: isDragging ? -5 : 0,
         scale: isDragging ? 1.02 : 1,
       }}
-      whileHover={{ 
+      whileHover={{
         y: -2,
         boxShadow: 'var(--shadow-soft-hover)',
       }}
@@ -91,7 +90,7 @@ export default function TaskCard({ task, onClick }) {
           {/* Left: Assignee or Date */}
           <div className="flex items-center gap-1.5 min-w-0">
             {task.assignee ? (
-              <motion.div 
+              <motion.div
                 className="flex items-center gap-1.5 text-xs text-muted-foreground"
                 whileHover={{ scale: 1.02 }}
               >
@@ -104,7 +103,9 @@ export default function TaskCard({ task, onClick }) {
               </motion.div>
             ) : (
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <User className="w-3.5 h-3.5" strokeWidth={2.5} />
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                </svg>
                 <span>Sin asignar</span>
               </div>
             )}
@@ -112,14 +113,16 @@ export default function TaskCard({ task, onClick }) {
 
           {/* Right: Due Date */}
           {task.dueDate && (
-            <motion.div 
+            <motion.div
               className={cn(
                 'flex items-center gap-1 text-xs shrink-0',
                 dueDateStatus.color
               )}
               whileHover={{ scale: 1.05 }}
             >
-              <Calendar className="w-3.5 h-3.5" strokeWidth={2.5} />
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+              </svg>
               <span className="font-medium">{dueDateStatus.text}</span>
             </motion.div>
           )}
@@ -130,13 +133,15 @@ export default function TaskCard({ task, onClick }) {
           <div className="mt-2.5 pt-2.5 border-t border-border/50 flex items-center justify-between">
             {task.description && (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Circle className="w-2.5 h-2.5 fill-current" strokeWidth={0} />
+                <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                 <span className="truncate max-w-[150px] line-clamp-1">{task.description}</span>
               </div>
             )}
             {task.status === 'en_progreso' && (
               <div className="flex items-center gap-1 text-xs text-blue-500">
-                <Clock className="w-3.5 h-3.5" strokeWidth={2.5} />
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
                 <span>En progreso</span>
               </div>
             )}
