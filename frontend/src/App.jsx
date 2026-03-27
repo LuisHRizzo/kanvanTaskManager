@@ -8,7 +8,6 @@ import ProjectView from './pages/ProjectView';
 import TimeReport from './pages/TimeReport';
 import Settings from './pages/Settings';
 import TodayView from './pages/TodayView';
-import ProjectKanban from './pages/ProjectKanban';
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -42,14 +41,7 @@ function App() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/dashboard/kanban"
-        element={
-          <ProtectedRoute>
-            <ProjectKanban />
-          </ProtectedRoute>
-        }
-      />
+
       <Route
         path="/today"
         element={

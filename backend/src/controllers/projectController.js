@@ -2,7 +2,7 @@ const { Project, ProjectMember, User, Task } = require('../models');
 
 exports.createProject = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, color } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'El nombre del proyecto es requerido' });
@@ -11,6 +11,7 @@ exports.createProject = async (req, res) => {
     const project = await Project.create({
       name,
       description,
+      color: color || 'default',
       ownerId: req.user.id
     });
 
@@ -86,7 +87,7 @@ exports.getProject = async (req, res) => {
 exports.updateProject = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description } = req.body;
+    const { name, description, color } = req.body;
 
     const membership = await ProjectMember.findOne({
       where: { userId: req.user.id, projectId: id }
@@ -101,7 +102,7 @@ exports.updateProject = async (req, res) => {
       return res.status(404).json({ error: 'Proyecto no encontrado' });
     }
 
-    await project.update({ name, description });
+    await project.update({ name, description, color });
     
     const updatedProject = await Project.findByPk(id, {
       include: [

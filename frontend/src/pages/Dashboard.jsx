@@ -1,41 +1,249 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { DndContext, DragOverlay, useDraggable, useDroppable, useSensor, useSensors, PointerSensor, KeyboardSensor } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
+import { motion } from 'framer-motion';
 import { useAuthStore, useProjectStore } from '../store';
 import { useTheme } from '../contexts/ThemeContext';
 import NotificationBell from '../components/NotificationBell';
 import ThemeToggler from '../components/ThemeToggler';
-import { motion } from 'framer-motion';
+import ProjectModal from '../components/ProjectModal';
+import api from '../lib/api';
+
+const kanbanColumns = [
+  { id: 'backlog', title: 'Backlog', gradient: 'from-gray-500 to-gray-600' },
+  { id: 'en_proceso', title: 'En Proceso', gradient: 'from-blue-500 to-blue-600' },
+  { id: 'esperando', title: 'Esperando', gradient: 'from-yellow-500 to-yellow-600' },
+  { id: 'completados', title: 'Completados', gradient: 'from-green-500 to-green-600' }
+];
+
+const colorMap = {
+  default: { bg: 'bg-card', accent: 'bg-blue-500', border: 'hover:border-blue-400 dark:hover:border-blue-500' },
+  red: { bg: 'bg-red-50 dark:bg-red-950/70', accent: 'bg-red-500', border: 'hover:border-red-400 dark:hover:border-red-600' },
+  orange: { bg: 'bg-orange-50 dark:bg-orange-950/70', accent: 'bg-orange-500', border: 'hover:border-orange-400 dark:hover:border-orange-600' },
+  yellow: { bg: 'bg-yellow-50 dark:bg-yellow-950/70', accent: 'bg-yellow-500', border: 'hover:border-yellow-400 dark:hover:border-yellow-600' },
+  green: { bg: 'bg-green-50 dark:bg-green-950/70', accent: 'bg-green-500', border: 'hover:border-green-400 dark:hover:border-green-600' },
+  blue: { bg: 'bg-blue-50 dark:bg-blue-950/70', accent: 'bg-blue-500', border: 'hover:border-blue-400 dark:hover:border-blue-600' },
+  purple: { bg: 'bg-purple-50 dark:bg-purple-950/70', accent: 'bg-purple-500', border: 'hover:border-purple-400 dark:hover:border-purple-600' },
+  pink: { bg: 'bg-pink-50 dark:bg-pink-950/70', accent: 'bg-pink-500', border: 'hover:border-pink-400 dark:hover:border-pink-600' },
+};
+
+function DraggableProject({ project, onClick, onEdit, onDelete }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useDraggable({
+    id: project.id,
+    data: { project }
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  };
+
+  const colors = colorMap[project.color || 'default'] || colorMap.default;
+
+  return (
+    <motion.div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{
+        opacity: isDragging ? 0.5 : 1,
+        y: isDragging ? -5 : 0,
+        scale: isDragging ? 1.02 : 1,
+      }}
+      whileHover={{ y: -2, boxShadow: 'var(--shadow-soft-hover)' }}
+      className={`
+        group relative p-4 rounded-xl border shadow-soft cursor-grab active:cursor-grabbing
+        transition-all duration-200 ease-out overflow-hidden
+        ${colors.bg} ${colors.border} border-border/60
+        ${isDragging ? 'ring-2 ring-primary/20 shadow-glow dark:shadow-glow-dark' : ''}
+      `}
+      onClick={(e) => {
+        if (!isDragging && onClick) onClick(project.id);
+      }}
+    >
+      <div className={`absolute left-0 top-0 bottom-0 w-1.5 opacity-60 group-hover:opacity-100 transition-opacity ${colors.accent}`} />
+      
+      <div className="pl-1 relative">
+        <h4 className="font-semibold text-foreground mb-2 pr-12 line-clamp-1">{project.name}</h4>
+        {project.description && (
+          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+            {project.description}
+          </p>
+        )}
+        <div className="flex items-center justify-between text-xs text-muted-foreground mt-3 pt-3 border-t border-border/40">
+          <span>{new Date(project.createdAt).toLocaleDateString('es-AR')}</span>
+          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-medium" title={project.owner?.name}>
+            {project.owner?.name?.charAt(0).toUpperCase()}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div 
+          className="absolute top-0 right-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity"
+          onPointerDown={(e) => e.stopPropagation()} // Prevent drag conflict
+        >
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(project); }}
+            className="p-1.5 text-muted-foreground hover:text-primary transition-base"
+            title="Editar proyecto"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
+            </svg>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(project); }}
+            className="p-1.5 text-muted-foreground hover:text-destructive transition-base"
+            title="Eliminar proyecto"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a2.25 2.25 0 00-2.244-2.077L4.772 5.79m-4.788 0L3.253 5.79" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function DroppableColumn({ column, projects, onProjectClick, onEdit, onDelete }) {
+  const { setNodeRef, isOver } = useDroppable({ id: column.id });
+
+  return (
+    <motion.div
+      className={`
+        flex-shrink-0 w-80 min-w-[20rem] rounded-2xl
+        border backdrop-blur-sm
+        bg-gray-50/80 dark:bg-gray-950/50
+        border-gray-200/60 dark:border-gray-800/60
+        transition-all duration-300 flex flex-col max-h-[calc(100vh-12rem)]
+        ${isOver ? 'ring-2 ring-primary/30 bg-primary/5 dark:bg-primary/10' : ''}
+      `}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      {/* Header */}
+      <div className="p-4 border-b border-border/50 bg-background/50 rounded-t-2xl">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-2.5 h-2.5 rounded-full bg-gradient-to-r ${column.gradient}`} />
+            <h3 className="font-semibold text-sm text-foreground">
+              {column.title}
+            </h3>
+          </div>
+          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-background/80 dark:bg-background/20 text-muted-foreground shadow-sm">
+            {projects.length}
+          </span>
+        </div>
+      </div>
+
+      {/* Projects List */}
+      <div 
+        ref={setNodeRef} 
+        className="flex-1 p-3 space-y-3 overflow-y-auto scrollbar-thin min-h-[12rem]"
+      >
+        {projects.map((project) => (
+          <DraggableProject
+            key={project.id}
+            project={project}
+            onClick={onProjectClick}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        ))}
+        {projects.length === 0 && (
+          <div className="h-24 border-2 border-dashed border-border/50 rounded-xl flex items-center justify-center text-sm text-muted-foreground/50">
+            Arrastra aquí
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
 
 export default function Dashboard() {
   const [showModal, setShowModal] = useState(false);
-  const [newProject, setNewProject] = useState({ name: '', description: '' });
-  const [loading, setLoading] = useState(false);
-
+  const [editingProject, setEditingProject] = useState(null);
+  
   const user = useAuthStore((state) => state.user);
-  const { projects, fetchProjects, createProject } = useProjectStore();
+  const { projects, fetchProjects, deleteProject } = useProjectStore();
   const navigate = useNavigate();
+
+  const [activeProject, setActiveProject] = useState(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
 
   useEffect(() => {
     fetchProjects();
   }, []);
 
-  const handleCreateProject = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const project = await createProject(newProject);
-      navigate(`/project/${project.id}`);
-    } catch (error) {
-      alert('Error al crear proyecto');
-    } finally {
-      setLoading(false);
-      setShowModal(false);
-      setNewProject({ name: '', description: '' });
+  const handleDragStart = (event) => {
+    const project = projects.find(p => p.id === event.active.id);
+    setActiveProject(project);
+  };
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    setActiveProject(null);
+
+    if (!over) return;
+
+    const newStatus = over.id;
+    const projectId = active.id;
+
+    if (!['backlog', 'en_proceso', 'esperando', 'completados'].includes(newStatus)) {
+      return;
+    }
+
+    const currentProject = projects.find(p => p.id === projectId);
+    if (!currentProject) return;
+
+    if (newStatus !== currentProject.kanbanStatus) {
+      try {
+        await api.patch(`/projects/${projectId}/kanban-status`, { kanbanStatus: newStatus });
+        useProjectStore.setState({
+          projects: projects.map(p => (p.id === projectId ? { ...p, kanbanStatus: newStatus } : p))
+        });
+      } catch (error) {
+        console.error('Error updating kanban status:', error);
+        fetchProjects(); // revert filter status
+      }
     }
   };
 
+  const getProjectsByStatus = (status) => {
+    return projects.filter(p => p.kanbanStatus === status);
+  };
+
+  const handleEdit = (project) => {
+    setEditingProject(project);
+    setShowModal(true);
+  };
+
+  const handleDelete = (project) => {
+    if (confirm(`¿Eliminar el proyecto "${project.name}"?`)) {
+      deleteProject(project.id);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingProject(null);
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <motion.header 
         className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur-sm"
         initial={{ y: -100 }}
@@ -48,7 +256,7 @@ export default function Dashboard() {
               Mis Proyectos
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Gestioná tus proyectos y tareas
+              Gestioná tus proyectos en el tablero
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -104,21 +312,21 @@ export default function Dashboard() {
         </div>
       </motion.header>
 
-      <main className="max-w-7xl mx-auto px-6 py-6">
+      <main className="flex-1 flex flex-col p-6 overflow-hidden">
         <motion.div 
-          className="flex justify-between items-center mb-6"
+          className="flex justify-between items-center mb-6 shrink-0"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Proyectos</h2>
+            <h2 className="text-lg font-semibold text-foreground">Tablero de Control</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Accedé al <Link to="/dashboard/kanban" className="text-primary hover:underline">tablero Kanban</Link> para ver los proyectos por estado
+              Arrastra los proyectos para cambiar su estado.
             </p>
           </div>
           <motion.button
-            onClick={() => setShowModal(true)}
+            onClick={() => { setEditingProject(null); setShowModal(true); }}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-base font-medium"
@@ -130,145 +338,43 @@ export default function Dashboard() {
           </motion.button>
         </motion.div>
 
-        {projects.length === 0 ? (
-          <motion.div 
-            className="text-center py-16"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted/50 flex items-center justify-center">
-              <svg className="w-8 h-8 text-muted-foreground/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-              </svg>
+        <div className="flex-1 overflow-x-auto overflow-y-hidden scrollbar-thin pb-4">
+          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <div className="flex gap-6 h-full items-start px-2">
+              {kanbanColumns.map((column) => (
+                <DroppableColumn
+                  key={column.id}
+                  column={column}
+                  projects={getProjectsByStatus(column.id)}
+                  onProjectClick={(id) => navigate(`/project/${id}`)}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              ))}
             </div>
-            <p className="text-muted-foreground">No tenés proyectos. ¡Creá uno para comenzar!</p>
-          </motion.div>
-        ) : (
-          <motion.div 
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            {projects.map((project, index) => (
-              <motion.div
-                key={project.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                whileHover={{ y: -4 }}
-                className="group relative bg-card rounded-xl border border-border p-5 card-hover"
-              >
-                <Link to={`/project/${project.id}`}>
-                  <h3 className="text-base font-semibold text-foreground mb-2">
-                    {project.name}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]">
-                    {project.description || 'Sin descripción'}
-                  </p>
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-medium">
-                        {project.owner?.name?.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-muted-foreground text-xs">
-                        {project.owner?.name}
-                      </span>
-                    </div>
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      project.kanbanStatus === 'completados'
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
-                        : project.kanbanStatus === 'en_proceso'
-                        ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'
-                        : project.kanbanStatus === 'esperando'
-                        ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'
-                        : 'bg-slate-50 text-slate-700 dark:bg-slate-900/50 dark:text-slate-400'
-                    }`}>
-                      {project.kanbanStatus === 'completados' ? 'Completado' :
-                       project.kanbanStatus === 'en_proceso' ? 'En Proceso' :
-                       project.kanbanStatus === 'esperando' ? 'Esperando' : 'Backlog'}
-                    </span>
-                  </div>
-                </Link>
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (confirm(`¿Eliminar el proyecto "${project.name}"?`)) {
-                      useProjectStore.getState().deleteProject(project.id);
-                    }
-                  }}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  className="absolute top-3 right-3 p-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-base"
-                  title="Eliminar proyecto"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a2.25 2.25 0 00-2.244-2.077L4.772 5.79m-4.788 0L3.253 5.79" />
-                  </svg>
-                </button>
-              </motion.div>
-            ))}
-          </motion.div>
-        )}
+          </DndContext>
+        </div>
+
+        <DragOverlay>
+          {activeProject && (
+            <div className={`
+              w-80 p-4 rounded-xl shadow-xl border bg-card/90 backdrop-blur scale-105
+              ${colorMap[activeProject.color || 'default']?.border || 'border-border/60'}
+            `}>
+              <h4 className="font-semibold text-foreground mb-2">{activeProject.name}</h4>
+              {activeProject.description && (
+                <p className="text-sm text-muted-foreground line-clamp-2">{activeProject.description}</p>
+              )}
+            </div>
+          )}
+        </DragOverlay>
       </main>
 
       {showModal && (
-        <motion.div 
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          onClick={() => setShowModal(false)}
-        >
-          <motion.div 
-            className="bg-card rounded-2xl p-6 w-full max-w-md border border-border shadow-soft"
-            initial={{ scale: 0.95, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-semibold text-foreground mb-4">Nuevo Proyecto</h2>
-            <form onSubmit={handleCreateProject}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Nombre
-                </label>
-                <input
-                  type="text"
-                  value={newProject.name}
-                  onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-base"
-                  required
-                />
-              </div>
-              <div className="mb-5">
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Descripción
-                </label>
-                <textarea
-                  value={newProject.description}
-                  onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-base resize-none"
-                  rows={3}
-                />
-              </div>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2.5 rounded-lg border border-border text-foreground hover:bg-muted transition-base"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 transition-base"
-                >
-                  {loading ? 'Creando...' : 'Crear'}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </motion.div>
+        <ProjectModal 
+          project={editingProject} 
+          onClose={handleCloseModal} 
+        />
       )}
     </div>
   );
