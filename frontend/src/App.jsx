@@ -8,6 +8,7 @@ import ProjectView from './pages/ProjectView';
 import TimeReport from './pages/TimeReport';
 import Settings from './pages/Settings';
 import TodayView from './pages/TodayView';
+import PRDBuilder from './pages/PRDBuilder';
 
 function ProtectedRoute({ children }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -47,6 +48,14 @@ function App() {
         element={
           <ProtectedRoute>
             <TodayView />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/prd/:id"
+        element={
+          <ProtectedRoute>
+            <PRDBuilder />
           </ProtectedRoute>
         }
       />

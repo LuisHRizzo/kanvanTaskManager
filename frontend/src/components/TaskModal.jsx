@@ -40,6 +40,15 @@ const statusConfig = {
   completada: { label: 'Completada', bg: 'bg-emerald-100 dark:bg-emerald-900/50', text: 'text-emerald-700 dark:text-emerald-300' },
 };
 
+const formatBytes = (bytes, decimals = 2) => {
+  if (!+bytes) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+};
+
 export default function TaskModal({ task, onClose }) {
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
@@ -74,6 +83,10 @@ export default function TaskModal({ task, onClose }) {
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarError, setCalendarError] = useState(null);
   const [showCalendarForm, setShowCalendarForm] = useState(false);
+
+  const [documents, setDocuments] = useState([]);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [loadingDocs, setLoadingDocs] = useState(false);
 
   useEffect(() => {
     const fetchTimeData = async () => {
@@ -142,6 +155,21 @@ export default function TaskModal({ task, onClose }) {
       }
     };
     fetchGoogleSyncStatus();
+  }, [task.id]);
+
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      setLoadingDocs(true);
+      try {
+        const res = await api.get(`/tasks/${task.id}/documents`);
+        setDocuments(res.data);
+      } catch (error) {
+        console.error('Error fetching documents:', error);
+      } finally {
+        setLoadingDocs(false);
+      }
+    };
+    fetchDocuments();
   }, [task.id]);
 
   const handleSave = async () => {
@@ -250,6 +278,41 @@ export default function TaskModal({ task, onClose }) {
       setGoogleSyncStatus(null);
     } catch (error) {
       alert('Error al desvincular de Google Tasks');
+    }
+  };
+
+  const handleUploadDocument = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      return alert('El archivo excede el límite de 10MB.');
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploadingDoc(true);
+    try {
+      const res = await api.post(`/tasks/${task.id}/documents`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setDocuments(prev => [...prev, res.data]);
+    } catch (error) {
+      alert(error.response?.data?.error || 'Error al subir el documento');
+    } finally {
+      setUploadingDoc(false);
+      e.target.value = ''; // Reset file input
+    }
+  };
+
+  const handleDeleteDocument = async (docId) => {
+    if (!confirm('¿Seguro quieres eliminar este documento?')) return;
+    try {
+      await api.delete(`/tasks/${task.id}/documents/${docId}`);
+      setDocuments(prev => prev.filter(d => d.id !== docId));
+    } catch (error) {
+      alert('Error eliminando el documento');
     }
   };
 
@@ -742,13 +805,83 @@ export default function TaskModal({ task, onClose }) {
 
           {/* Attachments */}
           <div className="border-t border-border pt-5">
-            <h3 className="font-medium text-foreground mb-2 flex items-center gap-2">
+            <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
               <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
               </svg>
-              Documentos adjuntos
+              Documentos adjuntos ({documents.length})
             </h3>
-            <p className="text-sm text-muted-foreground">Próximamente en Fase 5</p>
+            
+            <div className="space-y-3 mb-4 max-h-48 overflow-y-auto scrollbar-thin">
+              {loadingDocs ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Cargando adjuntos...</p>
+              ) : documents.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4 bg-muted/20 border border-dashed border-border rounded-lg">No hay documentos adjuntos en esta tarea.</p>
+              ) : (
+                <div className="grid grid-cols-1 gap-2">
+                  {documents.map(doc => (
+                    <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-card shadow-sm hover:border-primary/50 transition-colors">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                          </svg>
+                        </div>
+                        <div className="flex flex-col overflow-hidden">
+                          <a 
+                            href={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/uploads/${doc.filePath}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-primary hover:underline truncate"
+                            title={doc.originalName}
+                          >
+                            {doc.originalName}
+                          </a>
+                          <span className="text-xs text-muted-foreground">{doc.size ? formatBytes(doc.size) : 'Desconocido'}</span>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => handleDeleteDocument(doc.id)}
+                        className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                        title="Eliminar documento"
+                      >
+                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                           <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                         </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <input 
+                type="file" 
+                id="file-upload" 
+                className="hidden" 
+                onChange={handleUploadDocument}
+                disabled={uploadingDoc}
+              />
+              <label 
+                htmlFor="file-upload" 
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed rounded-lg text-sm font-medium transition-colors ${uploadingDoc ? 'border-primary/50 text-primary/50 cursor-wait bg-primary/5' : 'border-primary/30 text-primary hover:bg-primary/5 cursor-pointer'}`}
+              >
+                {uploadingDoc ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full border-t-0"></div>
+                    Subiendo archivo...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Adjuntar archivo (Máx 10MB)
+                  </>
+                )}
+              </label>
+            </div>
           </div>
         </div>
 

@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const http = require('http');
+const path = require('path');
 const { sequelize } = require('./models');
 
 const { initializeSocket } = require('./socket');
@@ -16,6 +17,7 @@ const googleSyncRoutes = require('./routes/googleSync');
 const notificationRoutes = require('./routes/notifications');
 const taskAssignmentRoutes = require('./routes/taskAssignments');
 const commentRoutes = require('./routes/comments');
+const prdRoutes = require('./routes/prdRoutes');
 
 const app = express();
 
@@ -28,6 +30,9 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Archivos estáticos
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/time', timeRoutes);
@@ -36,6 +41,7 @@ app.use('/api/settings', googleSyncRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api', taskAssignmentRoutes);
 app.use('/api', commentRoutes);
+app.use('/api/prd', prdRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });

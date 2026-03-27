@@ -10,6 +10,7 @@ const Notification = require('./Notification');
 const NotificationPreference = require('./NotificationPreference');
 const TaskAssignment = require('./TaskAssignment');
 const Comment = require('./Comment');
+const PRDSession = require('./PRDSession');
 
 User.hasMany(Project, { foreignKey: 'ownerId', as: 'ownedProjects' });
 Project.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
@@ -22,6 +23,9 @@ User.hasMany(ProjectMember, { foreignKey: 'userId', as: 'projectMemberships' });
 
 Project.belongsToMany(User, { through: ProjectMember, foreignKey: 'projectId', as: 'members' });
 User.belongsToMany(Project, { through: ProjectMember, foreignKey: 'userId', as: 'projects' });
+
+Project.hasMany(PRDSession, { foreignKey: 'projectId', as: 'prdSessions' });
+PRDSession.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
 
 Project.hasMany(Task, { foreignKey: 'projectId', as: 'tasks' });
 Task.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
@@ -74,5 +78,6 @@ module.exports = {
   Notification,
   NotificationPreference,
   TaskAssignment,
-  Comment
+  Comment,
+  PRDSession
 };

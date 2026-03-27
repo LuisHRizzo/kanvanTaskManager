@@ -4,6 +4,7 @@ import { DndContext, DragOverlay, useDraggable, useDroppable, useSensor, useSens
 import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
 import { useAuthStore, useProjectStore } from '../store';
+import { usePRDStore } from '../store/prdStore';
 import { useTheme } from '../contexts/ThemeContext';
 import NotificationBell from '../components/NotificationBell';
 import ThemeToggler from '../components/ThemeToggler';
@@ -28,7 +29,7 @@ const colorMap = {
   pink: { bg: 'bg-pink-50 dark:bg-pink-950/70', accent: 'bg-pink-500', border: 'hover:border-pink-400 dark:hover:border-pink-600' },
 };
 
-function DraggableProject({ project, onClick, onEdit, onDelete }) {
+function DraggableProject({ project, onClick, onEdit, onDelete, onCreatePRD }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useDraggable({
     id: project.id,
     data: { project }
@@ -86,6 +87,15 @@ function DraggableProject({ project, onClick, onEdit, onDelete }) {
           onPointerDown={(e) => e.stopPropagation()} // Prevent drag conflict
         >
           <button
+            onClick={(e) => { e.stopPropagation(); onCreatePRD(project); }}
+            className="p-1.5 text-muted-foreground hover:text-green-500 transition-base"
+            title="Crear PRD con IA"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.82 1.508-2.316a7.5 7.5 0 10-7.516 0c.85.496 1.508 1.333 1.508 2.316V18" />
+            </svg>
+          </button>
+          <button
             onClick={(e) => { e.stopPropagation(); onEdit(project); }}
             className="p-1.5 text-muted-foreground hover:text-primary transition-base"
             title="Editar proyecto"
@@ -109,7 +119,7 @@ function DraggableProject({ project, onClick, onEdit, onDelete }) {
   );
 }
 
-function DroppableColumn({ column, projects, onProjectClick, onEdit, onDelete }) {
+function DroppableColumn({ column, projects, onProjectClick, onEdit, onDelete, onCreatePRD }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
   return (
@@ -153,6 +163,7 @@ function DroppableColumn({ column, projects, onProjectClick, onEdit, onDelete })
             onClick={onProjectClick}
             onEdit={onEdit}
             onDelete={onDelete}
+            onCreatePRD={onCreatePRD}
           />
         ))}
         {projects.length === 0 && (
@@ -240,6 +251,16 @@ export default function Dashboard() {
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingProject(null);
+  };
+
+  const handleCreatePRD = async (project) => {
+    try {
+      const { createSession } = usePRDStore.getState();
+      const prd = await createSession(project.id);
+      navigate(`/prd/${prd.session.id}`);
+    } catch (e) {
+      alert("Error iniciando PRD: " + (e.response?.data?.error || e.message));
+    }
   };
 
   return (
@@ -349,6 +370,7 @@ export default function Dashboard() {
                   onProjectClick={(id) => navigate(`/project/${id}`)}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
+                  onCreatePRD={handleCreatePRD}
                 />
               ))}
             </div>

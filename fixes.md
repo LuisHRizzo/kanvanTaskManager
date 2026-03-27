@@ -1,126 +1,181 @@
-📋 Plan de Implementación - Gestor de Proyectos
-1. 🔧 Arreglar hook de tiempo de tarea
-Problema identificado:
+1. Enfoque conceptual (lo importante de verdad)
 
-El timer no inicia al hacer clic en “Start”
-No se registra el tiempo total correctamente
-Causas probables:
+Tu producto no es un “generador de PRD”.
 
-El hook useTimeTracking resetea elapsedTime a 0 después de iniciar (setElapsedTime(0) en línea 44)
-El backend podría no estar persistiendo correctamente los TimeEntry
-Tareas:
-1.1. Revisar el endpoint POST /time/:taskId/start en timeController.js
-1.2. Verificar que el frontend reciba la entrada creada con startTime correcto
-1.3. Corregir el setElapsedTime(0) en el hook para que calcule desde el startTime recibido
-1.4. Validar que el TimeEntry se guarde con userId y taskId correctos
-1.5. Testear el flujo completo: Start → correr timer → Stop → verificar registro en BD
+👉 Es un sistema de extracción de conocimiento + estructuración + claridad de producto.
 
-2. 📊 Reorganizar proyectos en Kanban (Backlog, En Proceso, Esperando, Completados) + Filtro
-Cambios requeridos:
+Pensalo como:
 
-Backend:
-2.1. Actualizar modelo Project.js para agregar campo kanbanStatus (enum: backlog, en_proceso, esperando, completados)
-2.2. Actualizar projectController.js para permitir cambiar el estado Kanban
-2.3. Agregar ruta PATCH /api/projects/:id/kanban-status
-2.4. Actualizar GET /api/projects para aceptar filtro por ?status=en_proceso
+“Un analista funcional senior encapsulado en IA que sabe hacer las preguntas correctas.”
 
-Frontend:
-2.5. Crear componente ProjectKanbanBoard.jsx con 4 columnas
-2.6. Implementar drag & drop para mover proyectos entre columnas
-2.7. Agregar selector/filtro de estado en Dashboard.jsx
-2.8. Actualizar useProjectStore para manejar updateProjectKanbanStatus
-2.9. Modificar vista de lista de proyectos a vista Kanban (o agregar toggle)
+🧩 2. Cómo estructurar el flujo (la clave del éxito)
 
-3. 🔔 Implementar sistema de alertas
-Infraestructura existente:
+No hagas un solo prompt gigante.
 
-notificationService.js ya tiene funciones para push notifications
-notificationScheduler.js ya programa recordatorios de tareas
-Modelo NotificationPreference y DeviceToken existen
-Tareas pendientes:
-3.1. Frontend - UI de preferencias:
+Hacé un flujo iterativo tipo wizard, donde cada paso construye contexto.
 
-Crear componente NotificationSettings.jsx para configurar preferencias
-Agregar página/ruta /settings/notifications
-Permitir activar/desactivar: asignación de tareas, vencimientos, menciones
-3.2. Frontend - Service Worker:
+📌 Etapas recomendadas
+Contexto del producto
+Problema
+Usuarios
+Solución
+Features
+Casos de uso
+Requerimientos funcionales
+No funcionales
+Métricas de éxito
+Roadmap / alcance
+🤖 3. Diseño del sistema de prompts (MUY importante)
 
-Implementar service-worker.js para recibir push notifications
-Registrar el service worker en main.jsx
-Manejar permisos de notificación del navegador
-3.3. Frontend - Registro de tokens:
+Te propongo un enfoque profesional:
 
-Suscribirse a push notifications y enviar token al backend
-Endpoint: POST /api/notifications/register-device
-3.4. Backend - Mejorar scheduler:
+🧱 A. Prompt base (System Prompt)
 
-Verificar que startNotificationScheduler() se llame en app.js
-Agregar recordatorios de tareas próximas (hoy, mañana)
-Notificar cuando un proyecto cambia de estado Kanban
-3.5. Backend - WebSockets:
+Este define el “cerebro” del analista.
 
-Emitir evento notification_received cuando se crea notificación
-Actualizar badge/contador en tiempo real en el frontend
-3.6. UI de notificaciones:
+You are a Senior Product Manager and Functional Analyst with 15+ years of experience.
 
-Crear componente NotificationBell.jsx con dropdown de notificaciones
-Marcar notificaciones como leídas
-Historial de notificaciones
-4. 📅 Mostrar “Para Hoy”: lista de tareas en tabla con estados según Kanban
-Backend:
-4.1. Crear endpoint GET /api/tasks/today que retorne:
+Your goal is to help the user build a complete, clear and high-quality Product Requirements Document (PRD).
 
-Tareas con dueDate = hoy
-Tareas asignadas al usuario
-Ordenadas por prioridad/estado
-Incluir estado Kanban del proyecto padre
-4.2. Agregar filtro ?status=pendiente,en_proceso al endpoint
+You must:
+- Ask precise, structured and context-aware questions
+- Detect ambiguities and request clarification
+- Challenge weak ideas constructively
+- Think step-by-step before moving forward
+- Never assume missing information
 
-Frontend:
-4.3. Crear página TodayView.jsx o componente TodayPanel.jsx
-4.4. Implementar tabla con columnas: Tarea | Proyecto | Estado | Acciones
-4.5. Agregar acceso rápido desde Dashboard o navbar
-4.6. Permitir marcar tarea como completada directamente desde la tabla
-4.7. Agregar filtro por estado Kanban en la tabla
+You will guide the user through a structured process:
+1. Product Context
+2. Problem Definition
+3. Users & Personas
+4. Proposed Solution
+5. Features
+6. Use Cases
+7. Functional Requirements
+8. Non-Functional Requirements
+9. Success Metrics
+10. Scope & Roadmap
 
-5. 🔄 Mejorar exportación/sincronización con Google Tasks
-Problema actual:
+Rules:
+- Ask one question at a time (or a small batch if needed)
+- After each answer, briefly summarize understanding
+- Adapt next question based on previous answers
+- Keep responses concise but insightful
+🧩 B. Prompt por etapa (ejemplo)
+🧠 Etapa 1: Contexto
+Current Stage: Product Context
 
-Al completar una tarea en el sistema, no se marca como completada en Google Tasks
-Tareas:
-5.1. Backend - Webhook/sync bidireccional:
+Goal:
+Understand the general idea of the product.
 
-Modificar taskController.js para escuchar cambios de estado a completada
-Cuando status === 'completada', llamar a googleTasksService.updateTask() con status: 'completed'
-Actualizar googleTaskId en la tarea local si no existe
-5.2. Backend - Sync al importar:
+Ask:
+- What is the name of the product?
+- In one sentence, what does it do?
+- Is this a new product or an iteration of an existing one?
+- What industry does it belong to?
 
-En googleTasksService.js, agregar función syncTaskStatus(googleTaskId, localTaskId)
-Verificar estado de tarea en Google Tasks al hacer fetch
-Resolver conflictos (última modificación gana)
-5.3. Backend - Webhook de Google (opcional):
+Output:
+- A short structured summary
+- Then move to next stage only if enough clarity
+🔥 Etapa 2: Problema
+Current Stage: Problem Definition
 
-Implementar endpoint POST /api/webhooks/google-tasks para recibir actualizaciones
-Actualizar tarea local cuando Google notifique cambios
-5.4. Frontend - UI de sync:
+Goal:
+Clearly define the problem being solved.
 
-Mostrar estado de sincronización en TaskModal
-Botón “Sincronizar ahora” para forzar sync manual
-Indicador visual si hay discrepancias entre local y Google
-5.5. Backend - Manejo de errores:
+Ask:
+- What specific problem are you solving?
+- Who experiences this problem?
+- How is it currently being solved?
+- Why are current solutions insufficient?
 
-Reintentos si falla la API de Google
-Log de errores de sincronización
-Notificar al usuario si falla sync
-📅 Orden de implementación sugerido
-Prioridad	Feature	Complejidad	Dependencias
-🔴 Alta	1. Arreglar hook de tiempo	Baja	Ninguna
-🔴 Alta	3. Sistema de alertas	Media-Alta	1 (timer funcional)
-🟡 Media	4. “Para Hoy”	Media	Ninguna
-🟡 Media	5. Sync Google Tasks	Media	Ninguna
-🟢 Baja	2. Kanban de proyectos	Media	Ninguna
-📝 Notas adicionales
-Tests: Agregar tests unitarios para controllers modificados
-Migraciones: Crear scripts de migración para nuevos campos en BD
-Documentación: Actualizar README.md con nuevos endpoints y features
-Docker: No requiere cambios en la orquestación
+If answers are vague:
+→ Ask follow-up questions
+
+Output:
+- Problem Statement (clear, concise, testable)
+🧪 C. Prompt generador de PRD final
+
+Cuando ya tengas todo:
+
+Using all the collected information, generate a complete Product Requirements Document (PRD).
+
+Structure:
+
+# Product Requirements Document
+
+## 1. Overview
+## 2. Problem Statement
+## 3. Users & Personas
+## 4. Solution Description
+## 5. Features
+## 6. Use Cases
+## 7. Functional Requirements
+## 8. Non-Functional Requirements
+## 9. Success Metrics
+## 10. Roadmap / Scope
+
+Rules:
+- Be clear, structured, and professional
+- Avoid fluff
+- Use bullet points where appropriate
+- Ensure internal consistency
+🏗️ 4. Arquitectura recomendada (para tu caso real)
+
+Dado que venís trabajando con Next.js + APIs:
+
+🧩 Frontend (Next.js)
+Wizard UI (step-by-step)
+Chat UI opcional
+Estado persistido (Zustand o similar)
+🧠 Backend
+Endpoint /api/prd/step
+Endpoint /api/prd/generate
+🧠 IA Layer
+Mantener:
+conversation_state
+stage
+answers
+🧬 5. Modelo de datos sugerido
+type PRDSession = {
+  id: string
+  stage: number
+  answers: {
+    context?: {}
+    problem?: {}
+    users?: {}
+    solution?: {}
+    features?: {}
+    useCases?: {}
+    functionalReqs?: {}
+    nonFunctionalReqs?: {}
+    metrics?: {}
+    roadmap?: {}
+  }
+}
+⚡ 6. Diferencial que te va a hacer destacar
+
+Si querés que esto sea MUY bueno:
+
+🔥 Agregá:
+✅ Validación de calidad de respuestas
+✅ “Esto está flojo porque…” (feedback de IA)
+✅ Ejemplos automáticos
+✅ Reescritura profesional
+✅ Modo:
+“Startup”
+“Enterprise”
+“MVP rápido”
+🧠 7. Bonus: Meta-prompt (para mejorar tu herramienta)
+
+Podés hacer que la IA mejore sus propias preguntas:
+
+Analyze the current answers provided by the user.
+
+Identify:
+- Missing information
+- Ambiguities
+- Weak definitions
+
+Then:
+- Ask the most valuable next question to improve the PRD quality

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   DndContext,
   DragOverlay,
@@ -12,6 +12,7 @@ import {
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { motion } from 'framer-motion';
 import { useProjectStore } from '../store';
+import { usePRDStore } from '../store/prdStore';
 import { useSocket } from '../hooks/useSocket';
 import { useTimeTracking } from '../hooks/useTimeTracking';
 import KanbanColumn from '../components/KanbanColumn';
@@ -21,6 +22,8 @@ const statuses = ['pendiente', 'en_progreso', 'en_revision', 'completada'];
 
 export default function ProjectView() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('kanban'); // 'kanban' | 'prds'
   const [activeId, setActiveId] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -29,6 +32,7 @@ export default function ProjectView() {
   const [loading, setLoading] = useState(false);
 
   const { currentProject, tasks, fetchProject, fetchTasks, updateTaskStatus, createTask, setTasks } = useProjectStore();
+  const { projectSessions, fetchProjectSessions } = usePRDStore();
   useSocket(id);
   const { activeEntry, elapsedTime, loading: timerLoading, startTimer, stopTimer, formatTime } = useTimeTracking();
 
@@ -46,6 +50,7 @@ export default function ProjectView() {
   useEffect(() => {
     fetchProject(id);
     fetchTasks(id);
+    fetchProjectSessions(id);
   }, [id]);
 
   const tasksByStatus = statuses.reduce((acc, status) => {
@@ -113,6 +118,16 @@ export default function ProjectView() {
     }
   };
 
+  const handleCreatePRD = async () => {
+    try {
+      const { createSession } = usePRDStore.getState();
+      const prd = await createSession(id);
+      navigate(`/prd/${prd.session.id}`);
+    } catch (e) {
+      alert("Error iniciando PRD: " + (e.response?.data?.error || e.message));
+    }
+  };
+
   const activeTask = activeId ? tasks.find(t => t.id === activeId) : null;
 
   if (!currentProject) {
@@ -160,10 +175,33 @@ export default function ProjectView() {
         </div>
       </motion.header>
 
+      {/* Tabs */}
+      <div className="max-w-7xl mx-auto px-6 pt-4 flex gap-6 border-b border-border/40 bg-background/80 backdrop-blur-xl">
+        <button 
+          onClick={() => setActiveTab('kanban')}
+          className={`pb-3 font-medium text-sm transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'kanban' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+          </svg>
+          Tablero Kanban
+        </button>
+        <button 
+          onClick={() => setActiveTab('prds')}
+          className={`pb-3 font-medium text-sm transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'prds' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Documentos PRD
+        </button>
+      </div>
+
       {/* Main Content */}
       <main className="p-6">
-        <DndContext
-          sensors={sensors}
+        {activeTab === 'kanban' ? (
+          <DndContext
+            sensors={sensors}
           collisionDetection={closestCorners}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
@@ -201,6 +239,63 @@ export default function ProjectView() {
             ) : null}
           </DragOverlay>
         </DndContext>
+        ) : (
+          <div className="max-w-7xl mx-auto mt-2">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Documentos PRD</h2>
+                <p className="text-sm text-muted-foreground">Genera requerimientos de producto interactivos con Inteligencia Artificial.</p>
+              </div>
+              <button 
+                className="bg-primary text-primary-foreground font-medium px-4 py-2 rounded-lg shadow-sm hover:bg-primary/90 transition flex items-center gap-2" 
+                onClick={handleCreatePRD}
+              >
+                ✨ Generar Documento
+              </button>
+            </div>
+            {projectSessions && projectSessions.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {projectSessions.map(session => {
+                  const isCompleted = session.stage > 10;
+                  const formattedDate = new Date(session.updatedAt || session.createdAt).toLocaleDateString('es-AR', {
+                    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                  });
+                  return (
+                    <div key={session.id} className="bg-card border border-border shadow-soft rounded-xl p-5 hover:border-primary/50 transition-colors flex flex-col h-full">
+                      <div className="flex justify-between items-start mb-4">
+                        <h3 className="font-semibold text-foreground truncate">
+                          PRD Generado #{session.id.split('-').pop()}
+                        </h3>
+                        <div className={`px-2.5 py-1 text-xs font-medium rounded-full ${isCompleted ? 'bg-green-500/20 text-green-600' : 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-500'}`}>
+                          {isCompleted ? 'Completado' : `Borrador (Fase ${session.stage})`}
+                        </div>
+                      </div>
+                      <p className="text-muted-foreground text-sm flex-1 break-words line-clamp-2">
+                        {session.answers?.context || "Ningún avance guardado."}
+                      </p>
+                      <div className="mt-5 pt-4 border-t border-border/40 flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Actualizado: {formattedDate}</span>
+                        <Link 
+                          to={`/prd/${session.id}`}
+                          className="text-sm font-medium text-primary hover:underline"
+                        >
+                          {isCompleted ? 'Ver Documento' : 'Retomar'}
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-12 mt-4 bg-muted/20 border-2 border-dashed border-border rounded-xl">
+                 <span className="text-4xl mb-4">📄</span>
+                 <h3 className="text-lg font-semibold text-foreground mb-1">Aún no hay documentos PRD</h3>
+                 <p className="text-muted-foreground text-sm mb-4">Inicia una sesión interactiva con el Product Manager de inteligencia artificial.</p>
+                 <button className="text-primary font-medium hover:underline text-sm" onClick={handleCreatePRD}>Comenzar ahora →</button>
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Create Task Modal - Modern Design */}

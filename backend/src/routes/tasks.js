@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const taskController = require('../controllers/taskController');
+const documentController = require('../controllers/documentController');
+const upload = require('../middleware/upload');
 const auth = require('../middleware/auth');
 
 router.use(auth);
@@ -15,5 +17,10 @@ router.put('/:taskId', taskController.updateTask);
 router.delete('/:taskId', taskController.deleteTask);
 router.patch('/:taskId/status', taskController.updateTaskStatus);
 router.post('/:taskId/calendar-url', taskController.generateCalendarUrl);
+
+// Documents
+router.post('/:taskId/documents', upload.single('file'), documentController.uploadDocument);
+router.get('/:taskId/documents', documentController.getDocumentsByTask);
+router.delete('/:taskId/documents/:docId', documentController.deleteDocument);
 
 module.exports = router;
